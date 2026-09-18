@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Kame's Shelves"
+description = "A warm, editorial online bookstore for Algerian readers, with cozy discovery, book details, wishlist, cart, and cash-on-delivery checkout."
+version = "1.0.0"
+id = "artifacts/kames-shelves"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26020
+
+[services.development]
+run = "pnpm --filter @workspace/kames-shelves run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kames-shelves", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/kames-shelves/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26020"
+BASE_PATH = "/"

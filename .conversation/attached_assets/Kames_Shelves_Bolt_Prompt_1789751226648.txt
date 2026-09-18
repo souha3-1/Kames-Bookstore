@@ -1,0 +1,368 @@
+Build a complete responsive online bookstore website prototype for a
+real Algerian bookstore called:
+
+“Kame’s Shelves”
+
+The website should feel like the online version of an Instagram-based
+independent bookstore.
+
+IMPORTANT BRAND DIRECTION
+
+Use the attached visual references of Kame’s Shelves as inspiration.
+
+The brand identity is: - feminine - cozy - youthful - bookish - soft -
+playful - warm - Instagram-friendly
+
+Do NOT make it look like a generic Amazon/Shopify bookstore. Do NOT make
+it overly corporate or minimalist.
+
+The website should feel like someone took Kame’s Shelves’ Instagram
+aesthetic and transformed it into a polished online shopping experience.
+
+COLOR PALETTE
+
+Primary background: Warm cream #FFF9F5
+
+Primary brand color: Baby pink #F7DCE6
+
+Secondary pink: Soft blush #FBECEF
+
+Secondary accent: Dusty lavender #CFC1DD
+
+Dark accent: Deep mauve #80677F
+
+Small secondary accent: Pastel sage/mint #C9DDD6
+
+Text: Soft charcoal #39333A
+
+Use cream as the main page background.
+
+Use baby pink as the strongest visual brand color.
+
+Use lavender and mint only as supporting accents.
+
+Avoid saturated neon colors. Avoid excessive gradients. Avoid making
+everything pink.
+
+TYPOGRAPHY
+
+Use an elegant but friendly serif font for: - major headings - featured
+book titles - editorial sections
+
+Use a clean rounded sans-serif font for: - navigation - prices -
+descriptions - buttons - product information
+
+The typography should feel modern, feminine and editorial.
+
+BRAND NAME
+
+Logo / wordmark:
+
+“Kame’s Shelves”
+
+Include a small book-related symbol or subtle shelf/book icon next to
+the logo.
+
+The logo should feel handmade and charming, inspired by the bookstore’s
+Instagram profile picture, without directly copying it.
+
+NAVIGATION
+
+Create a clean desktop navigation bar.
+
+Left: Kame’s Shelves logo
+
+Center: - Home - Shop - Categories - New Arrivals - Best Sellers
+
+Right: - Search - Wishlist - Account - Shopping Bag
+
+On mobile, use a hamburger menu and keep Search + Cart visible.
+
+HERO SECTION
+
+Create a large visually attractive hero section.
+
+Main headline:
+
+“Your next favorite book is waiting.”
+
+Supporting text:
+
+“Discover your next read, from romance and mystery to fantasy and
+unforgettable stories.”
+
+Buttons:
+
+“Shop Books”
+
+“Explore Categories”
+
+The hero should include a beautiful editorial arrangement of books,
+bookmarks, ribbons, flowers or subtle stationery elements.
+
+Use baby pink, cream and lavender around the composition.
+
+Do not create fake generic ecommerce imagery.
+
+The books should look like real physical books.
+
+SHOPPING EXPERIENCE
+
+Create a proper bookstore product catalog.
+
+Include: - Product cards - Realistic book cover images/placeholders -
+Book title - Author - Price in DZD - Availability - Rating - Wishlist
+heart - Add to Cart button
+
+Example prices should be realistic Algerian bookstore prices such as:
+1600 DZD 1800 DZD 2000 DZD 2200 DZD
+
+Use “DZD” consistently.
+
+PRODUCT CATEGORIES
+
+Create categories inspired by the bookstore’s actual Instagram content:
+
+-   Romance
+-   Contemporary Romance
+-   Mystery & Thriller
+-   Fantasy
+-   Young Adult
+-   Fiction
+-   Classics
+-   Self Development
+-   BookTok Favorites
+-   New Releases
+
+CATEGORY SECTION
+
+Create beautiful visual category cards.
+
+Each category should have: - pastel background - small book
+illustration - category name - number of books
+
+Use alternating: baby pink cream lavender mint
+
+PRODUCT SECTION
+
+Create:
+
+“Popular on Kame’s Shelves”
+
+Show 6–8 book cards.
+
+Use real recognizable book titles where appropriate, but do NOT copy
+copyrighted book cover images.
+
+For the prototype, use visually similar mock book covers or clearly
+labeled placeholders.
+
+Example titles:
+
+The Summer of Broken Rules K.L. Walther
+
+The Cheat Sheet Sarah Adams
+
+Murder at the Bookstore Sue Minix
+
+Problematic Summer Romance Ali Hazelwood
+
+Add more fictional books to fill the catalog.
+
+BOOK DETAILS PAGE
+
+When a user clicks a book, open a detailed product page containing: -
+Large book cover - Title - Author - Price in DZD - Availability -
+Rating - Description - Genre - Format - Add to Cart - Add to Wishlist
+
+Also include:
+
+“You might also like”
+
+with related books.
+
+CART
+
+Create a functional shopping cart prototype.
+
+Cart should display: - book cover - title - author - price - quantity
+controls - remove button - subtotal - delivery fee - total
+
+Use DZD.
+
+Include:
+
+“Proceed to Checkout”
+
+CHECKOUT
+
+Since Kame’s Shelves is an Algerian bookstore, create a simple checkout
+form with:
+
+Full name Phone number Wilaya City Delivery address Order notes
+
+Payment method:
+
+“Cash on Delivery”
+
+Also display:
+
+“Delivery across Algeria 🇩🇿”
+
+Make this feel like an actual Algerian ecommerce experience.
+
+HOME PAGE SECTIONS
+
+After the hero, include:
+
+1.  “Shop by Category”
+2.  “Trending Now”
+3.  “New Arrivals”
+4.  “Kame’s Favorites”
+5.  “BookTok Favorites”
+6.  “What Our Readers Say”
+7.  “Delivery Across Algeria 🇩🇿”
+8.  Newsletter
+
+NEWSLETTER
+
+Create a soft baby-pink section.
+
+Headline:
+
+“Stay in our reading corner 💗”
+
+Text:
+
+“New books, recommendations and little surprises, straight to your
+inbox.”
+
+Email input
+
+“Subscribe” button
+
+SOCIAL MEDIA SECTION
+
+Because Kame’s Shelves is strongly Instagram-based, include a section:
+
+“Follow Kame’s Shelves”
+
+with an Instagram-style visual grid showing book photography.
+
+Add:
+
+“@kameshelves”
+
+and a button:
+
+“Follow us on Instagram”
+
+The grid should resemble cozy Instagram book photography: - books on
+bedsheets - bookmarks - pastel stationery - book stacks - reading setups
+
+Do not make it look like a generic stock-photo gallery.
+
+REVIEWS
+
+Create reader review cards with a cozy social-media feel.
+
+Example:
+
+“Such a cute bookstore! My order arrived perfectly packaged. 💗”
+
+“Found my new favorite book here!”
+
+“Fast delivery and beautiful packaging ✨”
+
+Use small circular profile placeholders.
+
+DELIVERY SECTION
+
+Create a dedicated section:
+
+“Books delivered across Algeria 🇩🇿”
+
+Include: - Delivery across Algeria - Cash on delivery - Carefully
+packaged books - Order tracking
+
+Use subtle Algerian visual references without making the website look
+governmental or overly patriotic.
+
+FOOTER
+
+Footer should contain:
+
+Kame’s Shelves
+
+“Your little corner for book lovers 📚”
+
+Shop - All Books - New Arrivals - Best Sellers - Categories
+
+Help - Contact - FAQ - Delivery - Returns
+
+Follow - Instagram - TikTok - Facebook
+
+Contact information placeholders.
+
+Add: “© 2026 Kame’s Shelves”
+
+DESIGN DETAILS
+
+Use: - soft rounded corners - subtle shadows - thin borders - generous
+whitespace - delicate decorative elements - tiny hearts -
+stars/sparkles - book icons - bookmarks - subtle floral elements
+
+Keep the decorative elements tasteful.
+
+The design should feel like:
+
+“Pinterest book aesthetic + cozy Instagram bookstore + modern
+ecommerce.”
+
+Avoid: - excessive glassmorphism - dark mode - neon colors - huge
+gradients - overly technical UI - corporate SaaS aesthetics - excessive
+animations - excessive rounded bubble shapes
+
+ANIMATIONS
+
+Add subtle interactions: - book cards slightly lift on hover - wishlist
+heart animation - buttons have smooth hover states - category cards have
+subtle movement - cart updates smoothly - page transitions are subtle
+
+RESPONSIVENESS
+
+Make the entire website responsive.
+
+Desktop: - spacious editorial layout - 4–5 product cards per row
+
+Tablet: - 3 cards per row
+
+Mobile: - 2 cards per row - sticky mobile navigation - easy-to-use
+cart - large touch targets
+
+OVERALL FEEL
+
+The final website should feel like:
+
+Kame’s Shelves’ Instagram account → transformed into a beautiful,
+functional online bookstore.
+
+It should preserve the personality of the original bookstore rather than
+replacing it with a generic luxury bookstore.
+
+The most important visual identity should be:
+
+BABY PINK + WARM CREAM + LAVENDER
+
+with small touches of MINT.
+
+Make the result polished enough to present as a professional prototype.
+
+IMPORTANT FOR THE ATTACHED REFERENCES
+
+Use the attached screenshots as visual brand references. Analyze the
+colors, mood, photography style, typography feel, packaging aesthetic
+and Instagram identity of Kame’s Shelves.
+
+Do not copy the Instagram UI itself. Translate the brand identity into
+an ecommerce website.
