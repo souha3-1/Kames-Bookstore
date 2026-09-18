@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
+import cheatSheetCover from '@assets/1_Screenshot_2026-09-18_at_18.16.50_1789751858872.png';
+import murderAtBookstoreCover from '@assets/2_Screenshot_2026-09-18_at_18.17.03_1789751858872.png';
+import problematicSummerRomanceCover from '@assets/3_Screenshot_2026-09-18_at_18.17.14_1789751858874.png';
+import summerOfBrokenRulesCover from '@assets/0_Screenshot_2026-09-18_at_18.16.20_1789751858853.png';
 import {
   ArrowLeft,
   ArrowRight,
@@ -33,6 +37,7 @@ type Product = {
   description: string;
   coverClass: string;
   bgClass: string;
+  coverImage?: string;
   tag?: string;
   pages: number;
   format: string;
@@ -42,54 +47,58 @@ type CartLine = { id: number; quantity: number };
 const products: Product[] = [
   {
     id: 1,
-    title: 'The Midnight Library',
-    author: 'Matt Haig',
-    price: 2650,
-    category: 'Fiction',
-    description: 'Between life and death there is a library. When Nora Seed finds herself there, every book offers a chance to try another life. A tender, hopeful story for the in-between seasons.',
+    title: 'The Summer of Broken Rules',
+    author: 'K.L. Walther',
+    price: 2200,
+    category: 'Romance',
+    description: 'Meredith Fox spends the summer at Martha’s Vineyard with a family she has known forever, a wedding to attend, and a game that brings an unexpected romance back into focus.',
     coverClass: 'pink',
-    bgClass: '',
+    bgClass: 'cream-bg',
     tag: 'Reader favourite',
-    pages: 304,
+    coverImage: summerOfBrokenRulesCover,
+    pages: 320,
     format: 'Paperback',
   },
   {
     id: 2,
-    title: 'Before the Coffee Gets Cold',
-    author: 'Toshikazu Kawaguchi',
-    price: 2300,
-    category: 'Classics',
-    description: 'In a tiny Tokyo café, customers can revisit one precious moment — but only until their coffee gets cold. A quiet, warm-hearted book about what we say, and what we leave unsaid.',
-    coverClass: 'purple',
-    bgClass: 'lilac-bg',
-    tag: 'Soft & strange',
-    pages: 224,
+    title: 'The Cheat Sheet',
+    author: 'Sarah Adams',
+    price: 2000,
+    category: 'Romance',
+    description: 'Bree and Nathan have been best friends for years, but one little cheat sheet threatens to reveal the feelings they have both been trying to hide.',
+    coverClass: 'teal',
+    bgClass: 'mint-bg',
+    coverImage: cheatSheetCover,
+    tag: 'Soft & funny',
+    pages: 336,
     format: 'Paperback',
   },
   {
     id: 3,
-    title: 'Tomorrow, and Tomorrow, and Tomorrow',
-    author: 'Gabrielle Zevin',
-    price: 3200,
+    title: 'Murder at the Bookstore',
+    author: 'Sue Minix',
+    price: 2400,
     category: 'Fiction',
-    description: 'Two friends, one shared language, and a lifetime spent making worlds together. Big-hearted, clever, and gloriously immersive — for readers who fall in love with characters.',
-    coverClass: 'teal',
-    bgClass: 'mint-bg',
-    tag: 'Staff pick',
-    pages: 416,
+    description: 'She can write the perfect murder mystery. But can she solve one in real life? A cozy bookstore mystery full of books, clues, and a cat with excellent timing.',
+    coverClass: 'purple',
+    bgClass: 'lilac-bg',
+    coverImage: murderAtBookstoreCover,
+    tag: 'Cozy mystery',
+    pages: 288,
     format: 'Paperback',
   },
   {
     id: 4,
-    title: 'The Seven Husbands of Evelyn Hugo',
-    author: 'Taylor Jenkins Reid',
-    price: 2850,
+    title: 'Problematic Summer Romance',
+    author: 'Ali Hazelwood',
+    price: 2800,
     category: 'Romance',
-    description: 'Reclusive Hollywood icon Evelyn Hugo finally tells the story of her glamorous, complicated life. A page-turning story about ambition, love, and choosing your own truth.',
+    description: 'A summer getaway, a family wedding, and a romance that is complicated in all the most entertaining ways. A bright, witty beach read from Ali Hazelwood.',
     coverClass: 'rose',
     bgClass: 'cream-bg',
+    coverImage: problematicSummerRomanceCover,
     tag: 'Can’t put down',
-    pages: 400,
+    pages: 352,
     format: 'Paperback',
   },
   {
@@ -155,6 +164,13 @@ const categories: { name: Category; icon: string }[] = [
 const formatDzd = (value: number) => `${value.toLocaleString('fr-DZ')} DA`;
 
 function Cover({ product, large = false }: { product: Product; large?: boolean }) {
+  if (product.coverImage) {
+    return (
+      <div className={`cover-card cover-photo ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
+        <img src={product.coverImage} alt={`${product.title} by ${product.author}`} />
+      </div>
+    );
+  }
   return (
     <div className={`cover-card ${product.coverClass} ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
       <small>prototype cover</small>
@@ -264,7 +280,7 @@ function BookCard({
         <Heart size={17} fill={isLoved ? 'currentColor' : 'none'} />
       </button>
       {product.tag && <span className="tag">{product.tag}</span>}
-      <button className={`cover-wrap ${product.bgClass}`} onClick={() => onOpen(product.id)} aria-label={`View ${product.title}`} data-testid={`button-open-book-${product.id}`}>
+       <button className={`cover-wrap ${product.bgClass}`} onClick={() => onOpen(product.id)} aria-label={`View ${product.title}`} data-testid={`button-open-book-${product.id}`}>
         <Cover product={product} />
       </button>
       <div className="book-info">
@@ -378,7 +394,7 @@ function Shop({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist:
   const visible = useMemo(() => products.filter((product) => (category === 'All' || product.category === category) && `${product.title} ${product.author}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : a.id - b.id), [category, query, sort]);
   return (
     <main>
-      <div className="container page-header"><div className="eyebrow">The online shelves</div><h1>Find your next<br /><em style={{ color: 'hsl(338 48% 62%)' }}>favorite.</em></h1><p>Stories we&apos;ve loved, passed along, and kept close. Every book is a prototype cover for now — the real magic is inside.</p></div>
+       <div className="container page-header"><div className="eyebrow">The online shelves</div><h1>Find your next<br /><em style={{ color: 'hsl(338 48% 62%)' }}>favorite.</em></h1><p>Stories we&apos;ve loved, passed along, and kept close. A few of our real shelf favourites are waiting here for you.</p></div>
       <div className="container"><div className="shop-toolbar"><div className="search-box"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or author…" aria-label="Search books" data-testid="input-shop-search" /></div><div style={{ display: 'flex', gap: 8 }}><select className="select" value={category} onChange={(event) => setCategory(event.target.value as Category)} aria-label="Filter by category" data-testid="select-category">{categories.map((item) => <option key={item.name}>{item.name}</option>)}</select><select className="select" value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort books" data-testid="select-sort"><option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></div></div>{visible.length > 0 ? <div className="book-grid" style={{ paddingBottom: 85 }}>{visible.map((product) => <BookCard key={product.id} product={product} isLoved={wishlist.includes(product.id)} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} />)}</div> : <div className="wishlist-empty"><Search className="empty-icon" size={34} /><h2 className="empty-title">Nothing on this exact page.</h2><p className="empty-copy">Try another title, author, or category. The shelves are a little shy today.</p><button className="btn btn-primary" onClick={() => { setQuery(''); setCategory('All'); }} data-testid="button-clear-search">Show everything</button></div>}</div>
     </main>
   );
@@ -398,7 +414,7 @@ function Wishlist({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishl
 function Cart({ cart, onQuantity, onRemove, onNavigate }: { cart: CartLine[]; onQuantity: (id: number, delta: number) => void; onRemove: (id: number) => void; onNavigate: (path: string) => void }) {
   const subtotal = cart.reduce((sum, line) => sum + (products.find((product) => product.id === line.id)?.price ?? 0) * line.quantity, 0);
   const delivery = subtotal === 0 ? 0 : subtotal >= 4000 ? 0 : 500;
-  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className={`mini-cover ${product.coverClass}`}><span>{product.title}</span></div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? 'Free' : formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Free delivery in Algiers over 4,000 DA. COD available everywhere else.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
+  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className={`mini-cover ${product.coverClass}`}>{product.coverImage ? <img src={product.coverImage} alt="" /> : <span>{product.title}</span>}</div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? 'Free' : formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Free delivery in Algiers over 4,000 DA. COD available everywhere else.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
 }
 
 function Checkout({ cart, onNavigate, onClearCart }: { cart: CartLine[]; onNavigate: (path: string) => void; onClearCart: () => void }) {
