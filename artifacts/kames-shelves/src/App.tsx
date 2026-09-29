@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import cheatSheetCover from '@assets/1_Screenshot_2026-09-18_at_18.16.50_1789751858872.png';
-import murderAtBookstoreCover from '@assets/2_Screenshot_2026-09-18_at_18.17.03_1789751858872.png';
-import problematicSummerRomanceCover from '@assets/3_Screenshot_2026-09-18_at_18.17.14_1789751858874.png';
-import summerOfBrokenRulesCover from '@assets/0_Screenshot_2026-09-18_at_18.16.20_1789751858853.png';
+import { fetchCatalog, type Product } from './lib/supabase';
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,129 +25,7 @@ import {
 } from 'lucide-react';
 
 type Category = 'All' | 'Fiction' | 'Romance' | 'Self-growth' | 'Classics' | 'Young adult';
-type Product = {
-  id: number;
-  title: string;
-  author: string;
-  price: number;
-  category: Exclude<Category, 'All'>;
-  description: string;
-  coverClass: string;
-  bgClass: string;
-  coverImage?: string;
-  tag?: string;
-  pages: number;
-  format: string;
-};
-type CartLine = { id: number; quantity: number };
-
-const products: Product[] = [
-  {
-    id: 1,
-    title: 'The Summer of Broken Rules',
-    author: 'K.L. Walther',
-    price: 2200,
-    category: 'Romance',
-    description: 'Meredith Fox spends the summer at Martha’s Vineyard with a family she has known forever, a wedding to attend, and a game that brings an unexpected romance back into focus.',
-    coverClass: 'pink',
-    bgClass: 'cream-bg',
-    tag: 'Reader favourite',
-    coverImage: summerOfBrokenRulesCover,
-    pages: 320,
-    format: 'Paperback',
-  },
-  {
-    id: 2,
-    title: 'The Cheat Sheet',
-    author: 'Sarah Adams',
-    price: 2000,
-    category: 'Romance',
-    description: 'Bree and Nathan have been best friends for years, but one little cheat sheet threatens to reveal the feelings they have both been trying to hide.',
-    coverClass: 'teal',
-    bgClass: 'mint-bg',
-    coverImage: cheatSheetCover,
-    tag: 'Soft & funny',
-    pages: 336,
-    format: 'Paperback',
-  },
-  {
-    id: 3,
-    title: 'Murder at the Bookstore',
-    author: 'Sue Minix',
-    price: 2400,
-    category: 'Fiction',
-    description: 'She can write the perfect murder mystery. But can she solve one in real life? A cozy bookstore mystery full of books, clues, and a cat with excellent timing.',
-    coverClass: 'purple',
-    bgClass: 'lilac-bg',
-    coverImage: murderAtBookstoreCover,
-    tag: 'Cozy mystery',
-    pages: 288,
-    format: 'Paperback',
-  },
-  {
-    id: 4,
-    title: 'Problematic Summer Romance',
-    author: 'Ali Hazelwood',
-    price: 2800,
-    category: 'Romance',
-    description: 'A summer getaway, a family wedding, and a romance that is complicated in all the most entertaining ways. A bright, witty beach read from Ali Hazelwood.',
-    coverClass: 'rose',
-    bgClass: 'cream-bg',
-    coverImage: problematicSummerRomanceCover,
-    tag: 'Can’t put down',
-    pages: 352,
-    format: 'Paperback',
-  },
-  {
-    id: 5,
-    title: 'The Comfort Book',
-    author: 'Matt Haig',
-    price: 2500,
-    category: 'Self-growth',
-    description: 'Notes, lists and small reminders for difficult days. A book to keep by the bed, dip into slowly, and lend to the friend who needs a little gentleness.',
-    coverClass: 'gold',
-    bgClass: 'cream-bg',
-    pages: 272,
-    format: 'Hardback',
-  },
-  {
-    id: 6,
-    title: 'Normal People',
-    author: 'Sally Rooney',
-    price: 2400,
-    category: 'Romance',
-    description: 'Connell and Marianne grow up in the same small town, orbiting each other through school, university, and the silences between. Intimate, sharp, and impossible to forget.',
-    coverClass: 'purple',
-    bgClass: 'lilac-bg',
-    pages: 288,
-    format: 'Paperback',
-  },
-  {
-    id: 7,
-    title: 'A Little Life',
-    author: 'Hanya Yanagihara',
-    price: 3900,
-    category: 'Fiction',
-    description: 'Four friends build a life in New York, carrying old wounds and new hopes. An expansive, deeply felt novel about friendship and the people who become family.',
-    coverClass: 'teal',
-    bgClass: 'mint-bg',
-    pages: 736,
-    format: 'Paperback',
-  },
-  {
-    id: 8,
-    title: 'The Alchemist',
-    author: 'Paulo Coelho',
-    price: 1900,
-    category: 'Classics',
-    description: 'A shepherd follows a recurring dream toward the Egyptian pyramids — and learns to listen closely to the language of the world along the way.',
-    coverClass: 'pink',
-    bgClass: '',
-    tag: 'A good first read',
-    pages: 208,
-    format: 'Paperback',
-  },
-];
+type CartLine = { id: string; quantity: number };
 
 const categories: { name: Category; icon: string }[] = [
   { name: 'All', icon: '✦' },
@@ -172,7 +47,7 @@ function Cover({ product, large = false }: { product: Product; large?: boolean }
     );
   }
   return (
-    <div className={`cover-card ${product.coverClass} ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
+    <div className={`cover-card ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
       <small>prototype cover</small>
       <b>{product.title}</b>
       <i>{product.author}</i>
@@ -270,17 +145,16 @@ function BookCard({
 }: {
   product: Product;
   isLoved: boolean;
-  onToggleWish: (id: number) => void;
+  onToggleWish: (id: string) => void;
   onAdd: (product: Product) => void;
-  onOpen: (id: number) => void;
+  onOpen: (id: string) => void;
 }) {
   return (
     <article className="book-card" data-testid={`card-product-${product.id}`}>
       <button className={`heart-btn ${isLoved ? 'loved' : ''}`} onClick={() => onToggleWish(product.id)} aria-label={isLoved ? `Remove ${product.title} from wishlist` : `Save ${product.title}`} data-testid={`button-wishlist-${product.id}`}>
         <Heart size={17} fill={isLoved ? 'currentColor' : 'none'} />
       </button>
-      {product.tag && <span className="tag">{product.tag}</span>}
-       <button className={`cover-wrap ${product.bgClass}`} onClick={() => onOpen(product.id)} aria-label={`View ${product.title}`} data-testid={`button-open-book-${product.id}`}>
+       <button className="cover-wrap" onClick={() => onOpen(product.id)} aria-label={`View ${product.title}`} data-testid={`button-open-book-${product.id}`}>
         <Cover product={product} />
       </button>
       <div className="book-info">
@@ -309,18 +183,21 @@ function CategoryStrip({ onNavigate }: { onNavigate: (path: string) => void }) {
 }
 
 function FeaturedBooks({
+  products,
   wishlist,
   onToggleWish,
   onAdd,
   onOpen,
   onNavigate,
 }: {
-  wishlist: number[];
-  onToggleWish: (id: number) => void;
+  products: Product[];
+  wishlist: string[];
+  onToggleWish: (id: string) => void;
   onAdd: (product: Product) => void;
-  onOpen: (id: number) => void;
+  onOpen: (id: string) => void;
   onNavigate: (path: string) => void;
 }) {
+  const featured = products.filter((product) => product.featured).slice(0, 4);
   return (
     <section className="section section-alt">
       <div className="container">
@@ -329,7 +206,7 @@ function FeaturedBooks({
           <button className="text-link" onClick={() => onNavigate('/shop')} data-testid="link-see-all">See all books <ArrowRight size={14} /></button>
         </div>
         <div className="book-grid">
-          {products.slice(0, 4).map((product) => <BookCard key={product.id} product={product} isLoved={wishlist.includes(product.id)} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} />)}
+          {featured.map((product) => <BookCard key={product.id} product={product} isLoved={wishlist.includes(product.id)} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} />)}
         </div>
       </div>
     </section>
@@ -379,11 +256,11 @@ function Newsletter() {
   );
 }
 
-function Home({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist: number[]; onToggleWish: (id: number) => void; onAdd: (product: Product) => void; onOpen: (id: number) => void; onNavigate: (path: string) => void }) {
-  return <><Hero onNavigate={onNavigate} /><CategoryStrip onNavigate={onNavigate} /><FeaturedBooks wishlist={wishlist} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} onNavigate={onNavigate} /><EditorialBlock onNavigate={onNavigate} /><Reviews /><Newsletter /></>;
+function Home({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { products: Product[]; wishlist: string[]; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onOpen: (id: string) => void; onNavigate: (path: string) => void }) {
+  return <><Hero onNavigate={onNavigate} /><CategoryStrip onNavigate={onNavigate} /><FeaturedBooks products={products} wishlist={wishlist} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} onNavigate={onNavigate} /><EditorialBlock onNavigate={onNavigate} /><Reviews /><Newsletter /></>;
 }
 
-function Shop({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist: number[]; onToggleWish: (id: number) => void; onAdd: (product: Product) => void; onOpen: (id: number) => void; onNavigate: (path: string) => void }) {
+function Shop({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { products: Product[]; wishlist: string[]; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onOpen: (id: string) => void; onNavigate: (path: string) => void }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category>('All');
   const [sort, setSort] = useState('featured');
@@ -391,7 +268,7 @@ function Shop({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist:
     const categoryParam = new URLSearchParams(window.location.search).get('category') as Category | null;
     if (categoryParam && categories.some((item) => item.name === categoryParam)) setCategory(categoryParam);
   }, []);
-  const visible = useMemo(() => products.filter((product) => (category === 'All' || product.category === category) && `${product.title} ${product.author}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : a.id - b.id), [category, query, sort]);
+  const visible = useMemo(() => products.filter((product) => (category === 'All' || product.category === category) && `${product.title} ${product.author}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => sort === 'price-low' ? a.price - b.price : sort === 'price-high' ? b.price - a.price : Number(b.featured) - Number(a.featured)), [category, query, sort, products]);
   return (
     <main>
        <div className="container page-header"><div className="eyebrow">The online shelves</div><h1>Find your next<br /><em style={{ color: 'hsl(338 48% 62%)' }}>favorite.</em></h1><p>Stories we&apos;ve loved, passed along, and kept close. A few of our real shelf favourites are waiting here for you.</p></div>
@@ -400,24 +277,24 @@ function Shop({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist:
   );
 }
 
-function ProductDetail({ product, isLoved, onToggleWish, onAdd, onNavigate }: { product: Product; isLoved: boolean; onToggleWish: (id: number) => void; onAdd: (product: Product) => void; onNavigate: (path: string) => void }) {
+function ProductDetail({ product, isLoved, onToggleWish, onAdd, onNavigate }: { product: Product; isLoved: boolean; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onNavigate: (path: string) => void }) {
   return (
-    <main className="detail"><div className="container"><button className="back-link" onClick={() => onNavigate('/shop')} data-testid="button-back-shop"><ArrowLeft size={14} /> Back to the shelves</button><div className="detail-grid"><div className={`detail-visual ${product.bgClass}`}><Cover product={product} large /><span className="sticker">a good<br />one ♡</span></div><div><div className="eyebrow">{product.category} · Kame&apos;s pick</div><h1>{product.title}</h1><div className="detail-author">by {product.author}</div><div className="detail-stats"><span className="stat"><BookOpen size={12} style={{ verticalAlign: 'middle' }} /> {product.pages} pages</span><span className="stat">{product.format}</span><span className="stat"><Truck size={12} style={{ verticalAlign: 'middle' }} /> COD available</span></div><p className="detail-desc">{product.description}</p><div className="detail-purchase"><span className="price">{formatDzd(product.price)} <small>· delivery calculated at checkout</small></span><button className="btn btn-primary" onClick={() => onAdd(product)} data-testid="button-detail-add">Add to bag <ShoppingBag size={15} /></button><button className={`heart-btn ${isLoved ? 'loved' : ''}`} style={{ position: 'static' }} onClick={() => onToggleWish(product.id)} aria-label="Save this book" data-testid="button-detail-wishlist"><Heart size={18} fill={isLoved ? 'currentColor' : 'none'} /></button></div><div className="delivery-note"><MapPin size={13} style={{ verticalAlign: 'middle' }} /> Delivered with care across Algeria · usually 2–5 working days · payment on arrival.</div></div></div></div></main>
+    <main className="detail"><div className="container"><button className="back-link" onClick={() => onNavigate('/shop')} data-testid="button-back-shop"><ArrowLeft size={14} /> Back to the shelves</button><div className="detail-grid"><div className="detail-visual"><Cover product={product} large /><span className="sticker">a good<br />one ♡</span></div><div><div className="eyebrow">{product.category} · Kame&apos;s pick</div><h1>{product.title}</h1><div className="detail-author">by {product.author}</div><div className="detail-stats"><span className="stat"><BookOpen size={12} style={{ verticalAlign: 'middle' }} /> {product.pages} pages</span><span className="stat">{product.format}</span><span className="stat"><Truck size={12} style={{ verticalAlign: 'middle' }} /> COD available</span></div><p className="detail-desc">{product.description}</p><div className="detail-purchase"><span className="price">{formatDzd(product.price)} <small>· delivery calculated at checkout</small></span><button className="btn btn-primary" onClick={() => onAdd(product)} data-testid="button-detail-add">Add to bag <ShoppingBag size={15} /></button><button className={`heart-btn ${isLoved ? 'loved' : ''}`} style={{ position: 'static' }} onClick={() => onToggleWish(product.id)} aria-label="Save this book" data-testid="button-detail-wishlist"><Heart size={18} fill={isLoved ? 'currentColor' : 'none'} /></button></div><div className="delivery-note"><MapPin size={13} style={{ verticalAlign: 'middle' }} /> Delivered with care across Algeria · usually 2–5 working days · payment on arrival.</div></div></div></div></main>
   );
 }
 
-function Wishlist({ wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { wishlist: number[]; onToggleWish: (id: number) => void; onAdd: (product: Product) => void; onOpen: (id: number) => void; onNavigate: (path: string) => void }) {
+function Wishlist({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { products: Product[]; wishlist: string[]; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onOpen: (id: string) => void; onNavigate: (path: string) => void }) {
   const saved = products.filter((product) => wishlist.includes(product.id));
   return <main><div className="container page-header"><div className="eyebrow">Your quiet corner</div><h1>Saved for<br /><em style={{ color: 'hsl(338 48% 62%)' }}>later.</em></h1><p>Books you&apos;re not ready to forget. Keep them here until the timing feels right.</p></div><div className="container" style={{ paddingBottom: 90 }}>{saved.length ? <div className="book-grid">{saved.map((product) => <BookCard key={product.id} product={product} isLoved onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} />)}</div> : <div className="wishlist-empty"><Heart className="empty-icon" size={35} /><h2 className="empty-title">Your saved shelf is waiting.</h2><p className="empty-copy">Tap the little heart on a book that makes you curious. It&apos;ll stay here for later.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-wishlist-shop">Browse books <ArrowRight size={15} /></button></div>}</div></main>;
 }
 
-function Cart({ cart, onQuantity, onRemove, onNavigate }: { cart: CartLine[]; onQuantity: (id: number, delta: number) => void; onRemove: (id: number) => void; onNavigate: (path: string) => void }) {
+function Cart({ products, cart, onQuantity, onRemove, onNavigate }: { products: Product[]; cart: CartLine[]; onQuantity: (id: string, delta: number) => void; onRemove: (id: string) => void; onNavigate: (path: string) => void }) {
   const subtotal = cart.reduce((sum, line) => sum + (products.find((product) => product.id === line.id)?.price ?? 0) * line.quantity, 0);
   const delivery = subtotal === 0 ? 0 : subtotal >= 4000 ? 0 : 500;
-  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className={`mini-cover ${product.coverClass}`}>{product.coverImage ? <img src={product.coverImage} alt="" /> : <span>{product.title}</span>}</div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? 'Free' : formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Free delivery in Algiers over 4,000 DA. COD available everywhere else.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
+  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className="mini-cover">{product.coverImage ? <img src={product.coverImage} alt="" /> : <span>{product.title}</span>}</div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? 'Free' : formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Free delivery in Algiers over 4,000 DA. COD available everywhere else.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
 }
 
-function Checkout({ cart, onNavigate, onClearCart }: { cart: CartLine[]; onNavigate: (path: string) => void; onClearCart: () => void }) {
+function Checkout({ products, cart, onNavigate, onClearCart }: { products: Product[]; cart: CartLine[]; onNavigate: (path: string) => void; onClearCart: () => void }) {
   const [submitted, setSubmitted] = useState(false);
   const subtotal = cart.reduce((sum, line) => sum + (products.find((product) => product.id === line.id)?.price ?? 0) * line.quantity, 0);
   const delivery = subtotal >= 4000 ? 0 : 500;
@@ -432,19 +309,29 @@ function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
 
 function AppContent() {
   const [location, setLocation] = useLocation();
-  const [wishlist, setWishlist] = useState<number[]>([3, 4]);
-  const [cart, setCart] = useState<CartLine[]>([{ id: 1, quantity: 1 }]);
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [catalogError, setCatalogError] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [toast, setToast] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    fetchCatalog()
+      .then((catalog) => { if (!cancelled) setProducts(catalog); })
+      .catch(() => { if (!cancelled) setCatalogError(true); });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 2200); return () => window.clearTimeout(timer); }, [toast]);
   const navigate = (path: string) => { setLocation(path); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const toggleWish = (id: number) => { const loved = wishlist.includes(id); setWishlist((current) => loved ? current.filter((item) => item !== id) : [...current, id]); setToast(loved ? 'Removed from your saved shelf' : 'Saved for a good reading day'); };
+  const toggleWish = (id: string) => { const loved = wishlist.includes(id); setWishlist((current) => loved ? current.filter((item) => item !== id) : [...current, id]); setToast(loved ? 'Removed from your saved shelf' : 'Saved for a good reading day'); };
   const addToCart = (product: Product) => { setCart((current) => current.some((line) => line.id === product.id) ? current.map((line) => line.id === product.id ? { ...line, quantity: line.quantity + 1 } : line) : [...current, { id: product.id, quantity: 1 }]); setToast(`${product.title} added to your bag`); };
-  const updateQuantity = (id: number, delta: number) => setCart((current) => current.map((line) => line.id === id ? { ...line, quantity: Math.max(1, line.quantity + delta) } : line));
-  const removeLine = (id: number) => { setCart((current) => current.filter((line) => line.id !== id)); setToast('Removed from your bag'); };
+  const updateQuantity = (id: string, delta: number) => setCart((current) => current.map((line) => line.id === id ? { ...line, quantity: Math.max(1, line.quantity + delta) } : line));
+  const removeLine = (id: string) => { setCart((current) => current.filter((line) => line.id !== id)); setToast('Removed from your bag'); };
   const path = location.split('?')[0];
-  const detailId = path.match(/^\/book\/(\d+)$/)?.[1];
-  const detailProduct = detailId ? products.find((product) => product.id === Number(detailId)) : undefined;
-  const page = path === '/' ? <Home wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout cart={cart} onNavigate={navigate} onClearCart={() => setCart([])} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
+  const detailId = path.match(/^\/book\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1];
+  const detailProduct = detailId ? products?.find((product) => product.id === detailId) : undefined;
+  if (!products) return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} /><main><div className="container page-header"><div className="eyebrow">The online shelves</div><h1>{catalogError ? 'The shelves are unreachable.' : 'Opening the shelves…'}</h1><p>{catalogError ? 'Something went wrong fetching our books. Please refresh the page in a moment.' : 'One second while we fetch the books for you.'}</p>{catalogError && <button className="btn btn-primary" onClick={() => window.location.reload()} data-testid="button-retry-catalog">Try again</button>}</div></main><Footer onNavigate={navigate} /></div>;
+  const page = path === '/' ? <Home products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart products={products} cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout products={products} cart={cart} onNavigate={navigate} onClearCart={() => setCart([])} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist products={products} wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
   return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} />{page}<Footer onNavigate={navigate} />{toast && <div className="toast" role="status" data-testid="status-toast">{toast}</div>}</div>;
 }
 
