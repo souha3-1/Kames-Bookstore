@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, type Product } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, type Product, type CartLine } from './lib/supabase';
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 
 type Category = 'All' | 'Fiction' | 'Romance' | 'Self-growth' | 'Classics' | 'Young adult';
-type CartLine = { id: string; quantity: number };
 
 const categories: { name: Category; icon: string }[] = [
   { name: 'All', icon: '✦' },
@@ -314,24 +313,41 @@ function AppContent() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [toast, setToast] = useState('');
+  const cartTokenRef = useRef('');
   useEffect(() => {
     let cancelled = false;
     fetchCatalog()
       .then((catalog) => { if (!cancelled) setProducts(catalog); })
       .catch(() => { if (!cancelled) setCatalogError(true); });
+    cartTokenRef.current = getCartToken();
+    fetchCart(cartTokenRef.current)
+      .then((lines) => { if (!cancelled) setCart(lines); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 2200); return () => window.clearTimeout(timer); }, [toast]);
   const navigate = (path: string) => { setLocation(path); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const toggleWish = (id: string) => { const loved = wishlist.includes(id); setWishlist((current) => loved ? current.filter((item) => item !== id) : [...current, id]); setToast(loved ? 'Removed from your saved shelf' : 'Saved for a good reading day'); };
-  const addToCart = (product: Product) => { setCart((current) => current.some((line) => line.id === product.id) ? current.map((line) => line.id === product.id ? { ...line, quantity: line.quantity + 1 } : line) : [...current, { id: product.id, quantity: 1 }]); setToast(`${product.title} added to your bag`); };
-  const updateQuantity = (id: string, delta: number) => setCart((current) => current.map((line) => line.id === id ? { ...line, quantity: Math.max(1, line.quantity + delta) } : line));
-  const removeLine = (id: string) => { setCart((current) => current.filter((line) => line.id !== id)); setToast('Removed from your bag'); };
+  const addToCart = (product: Product) => {
+    const newQuantity = (cart.find((line) => line.id === product.id)?.quantity ?? 0) + 1;
+    setCart(cart.some((line) => line.id === product.id)
+      ? cart.map((line) => line.id === product.id ? { ...line, quantity: newQuantity } : line)
+      : [...cart, { id: product.id, quantity: 1 }]);
+    setCartItem(cartTokenRef.current, product.id, newQuantity).catch(() => {});
+    setToast(`${product.title} added to your bag`);
+  };
+  const updateQuantity = (id: string, delta: number) => {
+    const current = cart.find((line) => line.id === id)?.quantity ?? 1;
+    const newQuantity = Math.max(1, current + delta);
+    setCart(cart.map((line) => line.id === id ? { ...line, quantity: newQuantity } : line));
+    setCartItem(cartTokenRef.current, id, newQuantity).catch(() => {});
+  };
+  const removeLine = (id: string) => { setCart((current) => current.filter((line) => line.id !== id)); deleteCartItem(cartTokenRef.current, id).catch(() => {}); setToast('Removed from your bag'); };
   const path = location.split('?')[0];
   const detailId = path.match(/^\/book\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1];
   const detailProduct = detailId ? products?.find((product) => product.id === detailId) : undefined;
   if (!products) return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} /><main><div className="container page-header"><div className="eyebrow">The online shelves</div><h1>{catalogError ? 'The shelves are unreachable.' : 'Opening the shelves…'}</h1><p>{catalogError ? 'Something went wrong fetching our books. Please refresh the page in a moment.' : 'One second while we fetch the books for you.'}</p>{catalogError && <button className="btn btn-primary" onClick={() => window.location.reload()} data-testid="button-retry-catalog">Try again</button>}</div></main><Footer onNavigate={navigate} /></div>;
-  const page = path === '/' ? <Home products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart products={products} cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout products={products} cart={cart} onNavigate={navigate} onClearCart={() => setCart([])} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist products={products} wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
+  const page = path === '/' ? <Home products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart products={products} cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout products={products} cart={cart} onNavigate={navigate} onClearCart={() => { setCart([]); clearCartItems(cartTokenRef.current).catch(() => {}); }} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist products={products} wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
   return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} />{page}<Footer onNavigate={navigate} />{toast && <div className="toast" role="status" data-testid="status-toast">{toast}</div>}</div>;
 }
 
