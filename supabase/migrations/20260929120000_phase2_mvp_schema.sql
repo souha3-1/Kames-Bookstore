@@ -144,7 +144,8 @@ $$;
 
 create constraint trigger trg_order_items_subtotal
   after insert or update of unit_price, quantity or delete on public.order_items
-  for each row execute function check_order_subtotal();
+  for each row when (pg_trigger_depth() = 0)
+  execute function check_order_subtotal();
 
 -- Guard against editing subtotal directly on an existing order (insert is
 -- exempt because items are added after the order row).
