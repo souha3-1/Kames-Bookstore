@@ -544,7 +544,7 @@ function Admin({ section }: { section: string }) {
   );
 
   const statCard = (label: string, value: number, testid: string) => (
-    <div className="summary" style={{ padding: 16 }} data-testid={testid}><div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div><div style={{ fontSize: 28, marginTop: 6 }}>{value}</div></div>
+    <div className="admin-card" style={{ padding: 16 }} data-testid={testid}><div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div><div style={{ fontSize: 28, marginTop: 6 }}>{value}</div></div>
   );
 
   if (view === 'dashboard') {
@@ -559,9 +559,9 @@ function Admin({ section }: { section: string }) {
         {statCard('Orders to confirm', orders.filter((order) => order.status === 'pending').length, 'stat-pending-orders')}
       </div>
       <h2 style={{ fontSize: 16, margin: '26px 0 10px' }}>Almost gone</h2>
-      {lowStock.length === 0 ? <p className="empty-copy">Every shelf is comfortably stocked.</p> : <div style={{ display: 'grid', gap: 8 }}>{lowStock.map((book) => <div key={book.id} className="summary" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid={`row-low-${book.id}`}><span style={{ fontSize: 13 }}>{book.title}</span><strong style={{ fontSize: 12, color: book.stock === 0 ? 'hsl(0 60% 45%)' : 'hsl(33 60% 45%)' }}>{book.stock === 0 ? 'sold out' : `${book.stock} left`}</strong></div>)}</div>}
+      {lowStock.length === 0 ? <p className="empty-copy">Every shelf is comfortably stocked.</p> : <div style={{ display: 'grid', gap: 8 }}>{lowStock.map((book) => <div key={book.id} className="admin-card" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid={`row-low-${book.id}`}><span style={{ fontSize: 13 }}>{book.title}</span><strong style={{ fontSize: 12, color: book.stock === 0 ? 'hsl(0 60% 45%)' : 'hsl(33 60% 45%)' }}>{book.stock === 0 ? 'sold out' : `${book.stock} left`}</strong></div>)}</div>}
       <h2 style={{ fontSize: 16, margin: '26px 0 10px' }}>Latest orders</h2>
-      {orders.length === 0 ? <p className="empty-copy">No orders yet — they\u2019ll appear here the moment one lands.</p> : <div style={{ display: 'grid', gap: 8 }}>{orders.slice(0, 5).map((order) => <div key={order.id} className="summary" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-recent-${order.id}`}><button type="button" onClick={() => go('orders')} style={{ fontSize: 13, cursor: 'pointer', border: 'none', background: 'none' }}>{order.order_number} — {order.customer_name}</button><span style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12 }}><strong>{formatDzd(order.total)}</strong><span className="muted">{order.status}</span></span></div>)}</div>}
+      {orders.length === 0 ? <p className="empty-copy">No orders yet — they\u2019ll appear here the moment one lands.</p> : <div style={{ display: 'grid', gap: 8 }}>{orders.slice(0, 5).map((order) => <div key={order.id} className="admin-card" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-recent-${order.id}`}><button type="button" onClick={() => go('orders')} style={{ fontSize: 13, cursor: 'pointer', border: 'none', background: 'none' }}>{order.order_number} — {order.customer_name}</button><span style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12 }}><strong>{formatDzd(order.total)}</strong><span className="muted">{order.status}</span></span></div>)}</div>}
     </>);
   }
 
@@ -587,7 +587,7 @@ function Admin({ section }: { section: string }) {
       }
     };
     const orderCard = (order: AdminOrder) => (
-      <div className="summary" key={order.id} data-testid={`card-order-${order.id}`}>
+      <div className="admin-card" key={order.id} data-testid={`card-order-${order.id}`}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 14 }} data-testid={`text-order-number-${order.id}`}>{order.order_number}</h2>
           <select value={order.status} onChange={(event) => changeStatus(order, event.target.value as OrderStatus)} data-testid={`select-status-${order.id}`} aria-label="Order status" style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'white', fontSize: 12 }}>
@@ -638,7 +638,7 @@ function Admin({ section }: { section: string }) {
             {editingCategory && editingCategory !== 'new' && editingCategory.id === category.id ? (
               <CategoryForm category={category} session={session} onDone={(done) => { setEditingCategory(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingCategory(null); setMessage(msg); }} />
             ) : (
-              <div className="summary" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-category-${category.id}`}>
+              <div className="admin-card" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-category-${category.id}`}>
                 <div><strong style={{ fontSize: 13 }}>{category.name}</strong><span className="muted" style={{ fontSize: 11, marginLeft: 10 }}>/{category.slug} · {books?.filter((book) => book.category_id === category.id).length ?? 0} books</span></div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button type="button" onClick={() => setEditingCategory(category)} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'underline' }} data-testid={`button-category-edit-${category.id}`}>Edit</button>
@@ -671,8 +671,8 @@ function Admin({ section }: { section: string }) {
           {editingBook && editingBook !== 'new' && editingBook.id === book.id ? (
             <BookForm book={book} categories={categories} session={session} onDone={(done) => { setEditingBook(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingBook(null); setMessage(msg); }} />
           ) : (
-            <div className="summary" style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', opacity: book.active ? 1 : 0.55 }} data-testid={`row-book-${book.id}`}>
-              <div className="mini-cover">{book.cover_url ? <img src={book.cover_url} alt="" /> : <span>{book.title.slice(0, 2)}</span>}</div>
+            <div className="admin-card" style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', opacity: book.active ? 1 : 0.55 }} data-testid={`row-book-${book.id}`}>
+              <div className="admin-cover">{book.cover_url ? <img src={book.cover_url} alt="" /> : <span>{book.title.slice(0, 2)}</span>}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong style={{ fontSize: 13, display: 'block' }}>{book.title}{!book.active && <span className="muted"> · archived</span>}{book.featured && <span style={{ color: 'hsl(338 48% 62%)' }}> ★</span>}</strong>
                 <span className="muted" style={{ fontSize: 12 }}>{book.categories?.name ?? '—'} · {formatDzd(book.price)}</span>
