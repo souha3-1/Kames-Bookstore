@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, type Product, type CartLine, type DeliveryMethod } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession } from './lib/supabase';
 import { WILAYAS } from './lib/algeria';
 import {
   ArrowLeft,
@@ -349,6 +349,78 @@ function Checkout({ products, cart, onNavigate, onClearCart }: { products: Produ
   return <main><div className="container page-header"><div className="eyebrow">Almost yours</div><h1>Checkout, <em style={{ color: 'hsl(338 48% 62%)' }}>gently.</em></h1><p>No account, no card details. Just tell us where to send your books and pay when they arrive.</p></div><div className="container checkout-layout" style={{ paddingBottom: 90 }}><form className="form-card" onSubmit={submit}><h2>Delivery details</h2><div className="form-grid"><div className="field"><label htmlFor="checkout-name">Full name</label><input id="checkout-name" name="name" required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" data-testid="input-checkout-name" /></div><div className="field"><label htmlFor="checkout-phone">Phone number</label><input id="checkout-phone" name="phone" required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0555 12 34 56" data-testid="input-checkout-phone" /></div><div className="field"><label htmlFor="checkout-wilaya">Wilaya</label><select id="checkout-wilaya" required value={wilayaCode || ''} onChange={(event) => { setWilayaCode(Number(event.target.value)); setCommune(''); }} data-testid="select-checkout-wilaya"><option value="" disabled>Search or choose your wilaya</option>{WILAYAS.map((item) => <option key={item.code} value={item.code}>{String(item.code).padStart(2, '0')} — {item.name}</option>)}</select></div><div className="field"><label htmlFor="checkout-commune">City / Commune</label><select id="checkout-commune" required disabled={!wilaya} value={commune} onChange={(event) => setCommune(event.target.value)} data-testid="select-checkout-commune"><option value="" disabled>{wilaya ? 'Choose your commune' : 'Choose your wilaya first'}</option>{(wilaya?.communes ?? []).map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="field full"><label>Delivery method</label><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{methodCard('home', 'Home delivery', 'We bring it to your door.', 'button-method-home')}{methodCard('stopdesk', 'Stop desk', 'You pick it up at a delivery office.', 'button-method-stopdesk')}</div></div>{deliveryMethod === 'home' && <div className="field full"><label htmlFor="checkout-address">Delivery address</label><input id="checkout-address" name="address" required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Street, building, helpful landmark…" data-testid="input-checkout-address" /></div>}<div className="field full"><label htmlFor="checkout-note">A note for the delivery person <span className="muted">(optional)</span></label><input id="checkout-note" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Call me before arriving…" data-testid="input-checkout-note" /></div></div>{error && <p style={{ marginTop: 14, fontSize: 12, color: 'hsl(0 60% 45%)' }} data-testid="status-checkout-error">{error}</p>}<div style={{ marginTop: 25, paddingTop: 18, borderTop: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))', fontSize: 11 }}><Clock3 size={13} style={{ verticalAlign: 'middle' }} /> We&apos;ll confirm your order by phone before dispatching.</div><button className="btn btn-primary" style={{ marginTop: 20, width: '100%' }} type="submit" disabled={placing} data-testid="button-place-order">{placing ? 'Placing your order…' : `Place my order · ${formatDzd(subtotal + delivery)}`} <ArrowRight size={15} /></button></form><aside className="summary"><h2>Your books</h2>{cart.map((line) => { const product = products.find((item) => item.id === line.id); return product ? <div className="summary-row" key={line.id}><span>{product.title} × {line.quantity}</span><strong>{formatDzd(product.price * line.quantity)}</strong></div> : null; })}<div className="summary-row"><span>Shipping</span><strong>{formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><p className="delivery-note"><Check size={13} style={{ verticalAlign: 'middle' }} /> Cash on delivery · no payment needed today.</p></aside></div></main>;
 }
 
+const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+
+function Admin() {
+  const [session, setSession] = useState<AdminSession | null>(() => getAdminSession());
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const [error, setError] = useState('');
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [filter, setFilter] = useState<'all' | OrderStatus>('all');
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    fetchAllOrders(session)
+      .then((rows) => { if (!cancelled) setOrders(rows); })
+      .catch(() => { if (!cancelled) setLoadError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [session]);
+  const signIn = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (signingIn) return;
+    setSigningIn(true);
+    setError('');
+    try {
+      setSession(await adminSignIn(email, password));
+      setPassword('');
+    } catch {
+      setError('That email or password didn\u2019t match. Please try again.');
+    } finally {
+      setSigningIn(false);
+    }
+  };
+  const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
+    if (!session || status === order.status) return;
+    const previous = orders;
+    setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status } : item));
+    try {
+      await updateOrderStatus(session, order.id, status);
+    } catch {
+      setOrders(previous);
+    }
+  };
+  if (!session) return <main className="detail"><div className="container" style={{ maxWidth: 430, paddingTop: 60, paddingBottom: 120 }}><div className="form-card"><h2>Back office</h2><p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 18 }}>The little counter where Kame keeps track of every order.</p><form onSubmit={signIn}><div className="field"><label htmlFor="admin-email">Email</label><input id="admin-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" data-testid="input-admin-email" /></div><div className="field"><label htmlFor="admin-password">Password</label><input id="admin-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" data-testid="input-admin-password" /></div>{error && <p style={{ marginTop: 14, fontSize: 12, color: 'hsl(0 60% 45%)' }} data-testid="status-admin-error">{error}</p>}<button className="btn btn-primary" style={{ marginTop: 20, width: '100%' }} type="submit" disabled={signingIn} data-testid="button-admin-signin">{signingIn ? 'Checking…' : 'Sign in'} <ArrowRight size={15} /></button></form></div></div></main>;
+  const visible = filter === 'all' ? orders : orders.filter((order) => order.status === filter);
+  const pendingCount = orders.filter((order) => order.status === 'pending').length;
+  const statusChip = (value: OrderStatus, label: string) => (
+    <button
+      type="button"
+      onClick={() => setFilter(value)}
+      className="field"
+      style={{
+        border: filter === value ? '1.5px solid hsl(338 48% 62%)' : '1px solid hsl(var(--border))',
+        borderRadius: 999,
+        padding: '7px 14px',
+        fontSize: 11,
+        cursor: 'pointer',
+        background: filter === value ? 'hsl(338 48% 97%)' : 'transparent',
+      }}
+      data-testid={`button-filter-${value}`}
+      key={value}
+    >
+      {label}
+    </button>
+  );
+  return <main><div className="container page-header"><div className="eyebrow">Back office</div><h1>Orders, <em style={{ color: 'hsl(338 48% 62%)' }}>all in one place.</em></h1><p>{orders.length} order{orders.length === 1 ? '' : 's'} so far · {pendingCount} waiting to be confirmed.</p><div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>{statusChip('all', 'All')}{ORDER_STATUSES.map((item) => statusChip(item, item))}</div><button className="btn btn-primary" style={{ marginTop: 18 }} onClick={() => { adminSignOut(); setSession(null); setOrders([]); }} data-testid="button-admin-signout">Sign out</button></div><div className="container" style={{ paddingBottom: 90 }}>{loading ? <p className="empty-copy">Fetching orders…</p> : loadError ? <p className="empty-copy">Couldn&apos;t load orders. <button style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setSession(session ? { ...session } : session)} data-testid="button-retry-admin">Try again</button></p> : visible.length === 0 ? <p className="empty-copy">No orders here yet.</p> : <div style={{ display: 'grid', gap: 18 }}>{visible.map((order) => <div className="summary" key={order.id} data-testid={`card-order-${order.id}`}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}><h2 style={{ fontSize: 14 }} data-testid={`text-order-number-${order.id}`}>{order.order_number}</h2><select value={order.status} onChange={(event) => changeStatus(order, event.target.value as OrderStatus)} data-testid={`select-status-${order.id}`} aria-label="Order status" style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'white', fontSize: 12 }}>{ORDER_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{new Date(order.created_at).toLocaleString()}</p><div className="form-grid" style={{ marginTop: 12 }}><div className="field"><span className="muted" style={{ fontSize: 11 }}>Customer</span><div style={{ fontSize: 13 }}>{order.customer_name} · {order.customer_phone}</div></div><div className="field"><span className="muted" style={{ fontSize: 11 }}>Destination</span><div style={{ fontSize: 13 }}>{order.wilaya}, {order.commune} · {order.delivery_method === 'home' ? 'Home delivery' : 'Stop desk'}</div></div>{order.address && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Address</span><div style={{ fontSize: 13 }}>{order.address}</div></div>}{order.notes && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Note</span><div style={{ fontSize: 13 }}>{order.notes}</div></div>}</div><div style={{ marginTop: 12, borderTop: '1px solid hsl(var(--border))', paddingTop: 10 }}>{order.order_items.map((item, index) => <div className="summary-row" key={index}><span>{item.title} × {item.quantity}</span><strong>{formatDzd(item.unit_price * item.quantity)}</strong></div>)}<div className="summary-row"><span>Shipping</span><strong>{formatDzd(order.delivery_fee)}</strong></div><div className="summary-row total"><span>Total (COD)</span><strong data-testid={`text-total-${order.id}`}>{formatDzd(order.total)}</strong></div></div></div>)}</div>}</div></main>;
+}
+
 function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
   return <footer className="footer"><div className="container footer-inner"><div><button className="brand" onClick={() => onNavigate('/')} data-testid="footer-link-home"><span className="brand-mark"><BookOpen size={16} /></span><span><span className="brand-name" style={{ fontSize: 18 }}>Kame&apos;s Shelves</span><span className="footer-note">A little bookstore from Algeria, with love.</span></span></button></div><div className="footer-links"><button onClick={() => onNavigate('/shop')} data-testid="footer-link-shop">Shop</button><button onClick={() => onNavigate('/wishlist')} data-testid="footer-link-wishlist">Wishlist</button><span><Instagram size={14} style={{ verticalAlign: 'middle' }} /> @kamesshelves</span></div></div></footer>;
 }
@@ -402,6 +474,7 @@ function AppContent() {
   const path = location.split('?')[0];
   const detailId = path.match(/^\/book\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1];
   const detailProduct = detailId ? products?.find((product) => product.id === detailId) : undefined;
+  if (path === '/admin') return <Admin />;
   if (!products) return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} /><main><div className="container page-header"><div className="eyebrow">The online shelves</div><h1>{catalogError ? 'The shelves are unreachable.' : 'Opening the shelves…'}</h1><p>{catalogError ? 'Something went wrong fetching our books. Please refresh the page in a moment.' : 'One second while we fetch the books for you.'}</p>{catalogError && <button className="btn btn-primary" onClick={() => window.location.reload()} data-testid="button-retry-catalog">Try again</button>}</div></main><Footer onNavigate={navigate} /></div>;
   const page = path === '/' ? <Home products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart products={products} cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout products={products} cart={cart} onNavigate={navigate} onClearCart={() => { setCart([]); clearCartItems(cartTokenRef.current).catch(() => {}); }} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist products={products} wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
   return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} />{page}<Footer onNavigate={navigate} />{toast && <div className="toast" role="status" data-testid="status-toast">{toast}</div>}</div>;
