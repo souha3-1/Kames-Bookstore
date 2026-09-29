@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, type Product, type CartLine } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, type Product, type CartLine } from './lib/supabase';
 import {
   ArrowLeft,
   ArrowRight,
@@ -323,11 +323,20 @@ function AppContent() {
     fetchCart(cartTokenRef.current)
       .then((lines) => { if (!cancelled) setCart(lines); })
       .catch(() => {});
+    fetchWishlist(cartTokenRef.current)
+      .then((ids) => { if (!cancelled) setWishlist(ids); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(''), 2200); return () => window.clearTimeout(timer); }, [toast]);
   const navigate = (path: string) => { setLocation(path); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const toggleWish = (id: string) => { const loved = wishlist.includes(id); setWishlist((current) => loved ? current.filter((item) => item !== id) : [...current, id]); setToast(loved ? 'Removed from your saved shelf' : 'Saved for a good reading day'); };
+  const toggleWish = (id: string) => {
+    const loved = wishlist.includes(id);
+    setWishlist(loved ? wishlist.filter((item) => item !== id) : [...wishlist, id]);
+    if (loved) deleteWishlistItem(cartTokenRef.current, id).catch(() => {});
+    else addWishlistItem(cartTokenRef.current, id).catch(() => {});
+    setToast(loved ? 'Removed from your saved shelf' : 'Saved for a good reading day');
+  };
   const addToCart = (product: Product) => {
     const newQuantity = (cart.find((line) => line.id === product.id)?.quantity ?? 0) + 1;
     setCart(cart.some((line) => line.id === product.id)
