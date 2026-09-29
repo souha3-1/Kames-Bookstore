@@ -178,3 +178,83 @@ export async function placeOrder(token: string, input: PlaceOrderInput): Promise
   if (!response.ok) throw new Error(`Order failed (${response.status})`);
   return (await response.json()) as string;
 }
+
+export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+export type OrderItem = { title: string; unit_price: number; quantity: number };
+
+export type AdminOrder = {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  wilaya: string;
+  commune: string | null;
+  delivery_method: 'home' | 'stopdesk';
+  address: string | null;
+  notes: string | null;
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  status: OrderStatus;
+  created_at: string;
+  order_items: OrderItem[];
+};
+
+const ADMIN_SESSION_KEY = 'kames-admin-session';
+
+export type AdminSession = { access_token: string; expires_at: number };
+
+export function getAdminSession(): AdminSession | null {
+  try {
+    const raw = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw) as AdminSession;
+    return session.expires_at > Math.floor(Date.now() / 1000) + 60 ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+export function adminSignOut(): void {
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+export async function adminSignIn(email: string, password: string): Promise<AdminSession> {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error(`Sign in failed (${response.status})`);
+  const data = (await response.json()) as { access_token: string; expires_at: number };
+  const session: AdminSession = { access_token: data.access_token, expires_at: data.expires_at };
+  localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+  return session;
+}
+
+function adminHeaders(session: AdminSession): HeadersInit {
+  return {
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    Authorization: `Bearer ${session.access_token}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+export async function fetchAllOrders(session: AdminSession): Promise<AdminOrder[]> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/orders?select=*,order_items(title,unit_price,quantity)&order=created_at.desc`,
+    { headers: adminHeaders(session) },
+  );
+  if (!response.ok) throw new Error(`Orders request failed (${response.status})`);
+  return (await response.json()) as AdminOrder[];
+}
+
+export async function updateOrderStatus(session: AdminSession, orderId: string, status: OrderStatus): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
+    method: 'PATCH',
+    headers: { ...adminHeaders(session), Prefer: 'return=minimal' },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error(`Status update failed (${response.status})`);
+}
