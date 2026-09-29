@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, fetchAdminBooks, fetchAdminCategories, createBook, updateBook, deleteBook, createCategory, updateCategory, deleteCategory, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession, type AdminBook, type AdminCategory, type BookInput } from './lib/supabase';
 import { WILAYAS } from './lib/algeria';
 import {
   ArrowLeft,
@@ -350,28 +350,147 @@ function Checkout({ products, cart, onNavigate, onClearCart }: { products: Produ
 }
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+const LOW_STOCK_THRESHOLD = 5;
 
-function Admin() {
+const adminInputStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 13, width: '100%', background: 'white' };
+
+function CategoryForm({ category, session, onDone, onError }: {
+  category: AdminCategory | 'new';
+  session: AdminSession;
+  onDone: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const isNew = category === 'new';
+  const [name, setName] = useState(isNew ? '' : category.name);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) return;
+    try {
+      if (isNew) await createCategory(session, name.trim(), slug);
+      else await updateCategory(session, category.id, { name: name.trim(), slug });
+      onDone(isNew ? 'Category added' : 'Category saved');
+    } catch {
+      onError('Something went wrong. Please try again.');
+    }
+  };
+  return <form onSubmit={submit} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '12px 14px', border: '1px solid hsl(var(--border))', borderRadius: 12 }} data-testid={isNew ? 'form-category-new' : `form-category-${category.id}`}>
+    <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Category name" style={adminInputStyle} data-testid={isNew ? 'input-category-name-new' : `input-category-name-${category.id}`} />
+    <button className="btn btn-primary" type="submit" style={{ padding: '8px 14px', fontSize: 12 }} data-testid={isNew ? 'button-category-save-new' : `button-category-save-${category.id}`}>Save</button>
+    <button type="button" onClick={() => onDone('')} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none' }}>Cancel</button>
+  </form>;
+}
+
+function BookForm({ book, categories, session, onDone, onError }: {
+  book: AdminBook | 'new';
+  categories: AdminCategory[];
+  session: AdminSession;
+  onDone: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const isNew = book === 'new';
+  const [form, setForm] = useState({
+    title: isNew ? '' : book.title, author: isNew ? '' : book.author, description: isNew ? '' : book.description,
+    price: isNew ? '' : String(book.price), category_id: isNew ? (categories[0]?.id ?? '') : book.category_id,
+    pages: isNew ? '' : String(book.pages ?? ''), format: isNew ? 'paperback' : book.format,
+    stock: isNew ? '0' : String(book.stock), cover_url: isNew ? '' : (book.cover_url ?? ''),
+    featured: isNew ? false : book.featured, active: isNew ? true : book.active,
+  });
+  const set = (key: string, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const payload: BookInput = {
+      title: form.title.trim(), author: form.author.trim(), description: form.description.trim() || 'A lovely read.',
+      price: Math.max(1, Number(form.price)), category_id: form.category_id,
+      pages: form.pages ? Number(form.pages) : null, format: form.format as 'paperback' | 'hardcover',
+      stock: Math.max(0, Number(form.stock)), cover_url: form.cover_url.trim() || null,
+      featured: form.featured, active: form.active,
+    };
+    try {
+      if (isNew) await createBook(session, payload);
+      else await updateBook(session, book.id, payload);
+      onDone(isNew ? 'Book added to the shelves' : 'Book saved');
+    } catch {
+      onError('Something went wrong. Please try again.');
+    }
+  };
+  return <form onSubmit={submit} className="form-card" data-testid={isNew ? 'form-book-new' : `form-book-${book.id}`}>
+    <h2 style={{ fontSize: 15 }}>{isNew ? 'A new book' : `Editing \u201c${book.title}\u201d`}</h2>
+    <div className="form-grid">
+      <div className="field"><label>Title</label><input required value={form.title} onChange={(event) => set('title', event.target.value)} style={adminInputStyle} data-testid={isNew ? 'input-book-title-new' : `input-book-title-${book.id}`} /></div>
+      <div className="field"><label>Author</label><input required value={form.author} onChange={(event) => set('author', event.target.value)} style={adminInputStyle} data-testid={isNew ? 'input-book-author-new' : `input-book-author-${book.id}`} /></div>
+      <div className="field"><label>Price (DA)</label><input required type="number" min="1" value={form.price} onChange={(event) => set('price', event.target.value)} style={adminInputStyle} data-testid={isNew ? 'input-book-price-new' : `input-book-price-${book.id}`} /></div>
+      <div className="field"><label>Category</label><select required value={form.category_id} onChange={(event) => set('category_id', event.target.value)} style={adminInputStyle} data-testid={isNew ? 'select-book-category-new' : `select-book-category-${book.id}`}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
+      <div className="field"><label>Stock</label><input required type="number" min="0" value={form.stock} onChange={(event) => set('stock', event.target.value)} style={adminInputStyle} data-testid={isNew ? 'input-book-stock-new' : `input-book-stock-${book.id}`} /></div>
+      <div className="field"><label>Pages (optional)</label><input type="number" min="1" value={form.pages} onChange={(event) => set('pages', event.target.value)} style={adminInputStyle} /></div>
+      <div className="field"><label>Format</label><select value={form.format} onChange={(event) => set('format', event.target.value)} style={adminInputStyle}>{['paperback', 'hardcover'].map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+      <div className="field full"><label>Cover image URL (optional)</label><input value={form.cover_url} onChange={(event) => set('cover_url', event.target.value)} placeholder="https://…" style={adminInputStyle} data-testid={isNew ? 'input-book-cover-new' : `input-book-cover-${book.id}`} /></div>
+      <div className="field full"><label>Description</label><textarea value={form.description} onChange={(event) => set('description', event.target.value)} rows={3} style={{ ...adminInputStyle, resize: 'vertical' }} data-testid={isNew ? 'input-book-desc-new' : `input-book-desc-${book.id}`} /></div>
+      <div className="field" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={form.featured} onChange={(event) => set('featured', event.target.checked)} /> Featured</label>
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={form.active} onChange={(event) => set('active', event.target.checked)} /> On the shelves</label>
+      </div>
+    </div>
+    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+      <button className="btn btn-primary" type="submit" data-testid={isNew ? 'button-book-save-new' : `button-book-save-${book.id}`}>{isNew ? 'Add to the shelves' : 'Save changes'}</button>
+      <button type="button" onClick={() => onDone('')} style={{ fontSize: 13, cursor: 'pointer', border: 'none', background: 'none' }}>Cancel</button>
+    </div>
+  </form>;
+}
+
+function Admin({ section }: { section: string }) {
   const [session, setSession] = useState<AdminSession | null>(() => getAdminSession());
+  const [localPath, setLocalPath] = useState(section);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState('');
-  const [orders, setOrders] = useState<AdminOrder[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [books, setBooks] = useState<AdminBook[] | null>(null);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [orders, setOrders] = useState<AdminOrder[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [filter, setFilter] = useState<'all' | OrderStatus>('all');
-  useEffect(() => {
-    if (!session) return;
-    let cancelled = false;
-    setLoading(true);
+  const [message, setMessage] = useState('');
+  const [editingBook, setEditingBook] = useState<AdminBook | 'new' | null>(null);
+  const [editingCategory, setEditingCategory] = useState<AdminCategory | 'new' | null>(null);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | OrderStatus>('all');
+  const [orderSort, setOrderSort] = useState<'newest' | 'oldest'>('newest');
+
+  useEffect(() => { setLocalPath(section); }, [section]);
+  useEffect(() => { if (!message) return; const timer = window.setTimeout(() => setMessage(''), 2500); return () => window.clearTimeout(timer); }, [message]);
+
+  const load = async (activeSession: AdminSession) => {
     setLoadError(false);
-    fetchAllOrders(session)
-      .then((rows) => { if (!cancelled) setOrders(rows); })
-      .catch(() => { if (!cancelled) setLoadError(true); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    try {
+      const [bookRows, categoryRows, orderRows] = await Promise.all([
+        fetchAdminBooks(activeSession),
+        fetchAdminCategories(activeSession),
+        fetchAllOrders(activeSession),
+      ]);
+      setBooks(bookRows);
+      setCategories(categoryRows);
+      setOrders(orderRows);
+    } catch {
+      setLoadError(true);
+    }
+  };
+  useEffect(() => {
+    if (session) load(session);
   }, [session]);
+
+  const run = async (action: () => Promise<void>, done: string) => {
+    if (!session) return;
+    try {
+      await action();
+      setMessage(done);
+      await load(session);
+    } catch (err) {
+      setMessage(err instanceof Error && err.message.includes('delete failed')
+        ? 'That can\u2019t be deleted — products or orders still use it.'
+        : 'Something went wrong. Please try again.');
+    }
+  };
+
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (signingIn) return;
@@ -386,39 +505,194 @@ function Admin() {
       setSigningIn(false);
     }
   };
-  const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
-    if (!session || status === order.status) return;
-    const previous = orders;
-    setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status } : item));
-    try {
-      await updateOrderStatus(session, order.id, status);
-    } catch {
-      setOrders(previous);
-    }
+
+  if (!session) return <main className="detail"><div className="container" style={{ maxWidth: 430, paddingTop: 60, paddingBottom: 120 }}><div className="form-card"><h2>Back office</h2><p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 18 }}>The little counter where Kame keeps track of everything.</p><form onSubmit={signIn}><div className="field"><label htmlFor="admin-email">Email</label><input id="admin-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" data-testid="input-admin-email" /></div><div className="field"><label htmlFor="admin-password">Password</label><input id="admin-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" data-testid="input-admin-password" /></div>{error && <p style={{ marginTop: 14, fontSize: 12, color: 'hsl(0 60% 45%)' }} data-testid="status-admin-error">{error}</p>}<button className="btn btn-primary" style={{ marginTop: 20, width: '100%' }} type="submit" disabled={signingIn} data-testid="button-admin-signin">{signingIn ? 'Checking…' : 'Sign in'} <ArrowRight size={15} /></button></form></div></div></main>;
+
+  const view = localPath.replace(/\/admin\/?/, '') || 'dashboard';
+  const navItems: Array<{ key: string; label: string }> = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'products', label: 'Products' },
+    { key: 'categories', label: 'Categories' },
+    { key: 'orders', label: 'Orders' },
+  ];
+  const go = (key: string) => {
+    const next = key === 'dashboard' ? '/admin' : `/admin/${key}`;
+    window.history.replaceState(null, '', next);
+    setLocalPath(next);
+    setEditingBook(null);
+    setEditingCategory(null);
+    window.scrollTo({ top: 0 });
   };
-  if (!session) return <main className="detail"><div className="container" style={{ maxWidth: 430, paddingTop: 60, paddingBottom: 120 }}><div className="form-card"><h2>Back office</h2><p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 18 }}>The little counter where Kame keeps track of every order.</p><form onSubmit={signIn}><div className="field"><label htmlFor="admin-email">Email</label><input id="admin-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" data-testid="input-admin-email" /></div><div className="field"><label htmlFor="admin-password">Password</label><input id="admin-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" data-testid="input-admin-password" /></div>{error && <p style={{ marginTop: 14, fontSize: 12, color: 'hsl(0 60% 45%)' }} data-testid="status-admin-error">{error}</p>}<button className="btn btn-primary" style={{ marginTop: 20, width: '100%' }} type="submit" disabled={signingIn} data-testid="button-admin-signin">{signingIn ? 'Checking…' : 'Sign in'} <ArrowRight size={15} /></button></form></div></div></main>;
-  const visible = filter === 'all' ? orders : orders.filter((order) => order.status === filter);
-  const pendingCount = orders.filter((order) => order.status === 'pending').length;
-  const statusChip = (value: OrderStatus, label: string) => (
-    <button
-      type="button"
-      onClick={() => setFilter(value)}
-      className="field"
-      style={{
-        border: filter === value ? '1.5px solid hsl(338 48% 62%)' : '1px solid hsl(var(--border))',
-        borderRadius: 999,
-        padding: '7px 14px',
-        fontSize: 11,
-        cursor: 'pointer',
-        background: filter === value ? 'hsl(338 48% 97%)' : 'transparent',
-      }}
-      data-testid={`button-filter-${value}`}
-      key={value}
-    >
-      {label}
-    </button>
+  const shell = (children: React.ReactNode) => (
+    <main><div className="container" style={{ paddingTop: 30, paddingBottom: 90 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 190px) 1fr', gap: 28, alignItems: 'start' }}>
+        <aside style={{ display: 'grid', gap: 6, position: 'sticky', top: 20 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Back office</div>
+          {navItems.map((item) => (
+            <button key={item.key} type="button" onClick={() => go(item.key)}
+              style={{ textAlign: 'left', padding: '9px 13px', borderRadius: 10, fontSize: 13, cursor: 'pointer', border: view === item.key ? '1.5px solid hsl(338 48% 62%)' : '1px solid transparent', background: view === item.key ? 'hsl(338 48% 97%)' : 'transparent' }}
+              data-testid={`button-admin-nav-${item.key}`}>
+              {item.label}
+              {item.key === 'orders' && orders && orders.some((order) => order.status === 'pending') && <span style={{ marginLeft: 6, background: 'hsl(338 48% 62%)', color: 'white', borderRadius: 999, fontSize: 10, padding: '1px 7px' }}>{orders.filter((order) => order.status === 'pending').length}</span>}
+            </button>
+          ))}
+          <button type="button" onClick={() => { adminSignOut(); setSession(null); setBooks(null); setOrders(null); }} style={{ textAlign: 'left', padding: '9px 13px', borderRadius: 10, fontSize: 13, cursor: 'pointer', border: '1px solid transparent', color: 'hsl(var(--muted-foreground))' }} data-testid="button-admin-signout">Sign out</button>
+        </aside>
+        <div>{children}</div>
+      </div>
+    </div>{message && <div className="toast" role="status" data-testid="status-admin-toast">{message}</div>}</main>
   );
-  return <main><div className="container page-header"><div className="eyebrow">Back office</div><h1>Orders, <em style={{ color: 'hsl(338 48% 62%)' }}>all in one place.</em></h1><p>{orders.length} order{orders.length === 1 ? '' : 's'} so far · {pendingCount} waiting to be confirmed.</p><div style={{ marginTop: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>{statusChip('all', 'All')}{ORDER_STATUSES.map((item) => statusChip(item, item))}</div><button className="btn btn-primary" style={{ marginTop: 18 }} onClick={() => { adminSignOut(); setSession(null); setOrders([]); }} data-testid="button-admin-signout">Sign out</button></div><div className="container" style={{ paddingBottom: 90 }}>{loading ? <p className="empty-copy">Fetching orders…</p> : loadError ? <p className="empty-copy">Couldn&apos;t load orders. <button style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setSession(session ? { ...session } : session)} data-testid="button-retry-admin">Try again</button></p> : visible.length === 0 ? <p className="empty-copy">No orders here yet.</p> : <div style={{ display: 'grid', gap: 18 }}>{visible.map((order) => <div className="summary" key={order.id} data-testid={`card-order-${order.id}`}><div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}><h2 style={{ fontSize: 14 }} data-testid={`text-order-number-${order.id}`}>{order.order_number}</h2><select value={order.status} onChange={(event) => changeStatus(order, event.target.value as OrderStatus)} data-testid={`select-status-${order.id}`} aria-label="Order status" style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'white', fontSize: 12 }}>{ORDER_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{new Date(order.created_at).toLocaleString()}</p><div className="form-grid" style={{ marginTop: 12 }}><div className="field"><span className="muted" style={{ fontSize: 11 }}>Customer</span><div style={{ fontSize: 13 }}>{order.customer_name} · {order.customer_phone}</div></div><div className="field"><span className="muted" style={{ fontSize: 11 }}>Destination</span><div style={{ fontSize: 13 }}>{order.wilaya}, {order.commune} · {order.delivery_method === 'home' ? 'Home delivery' : 'Stop desk'}</div></div>{order.address && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Address</span><div style={{ fontSize: 13 }}>{order.address}</div></div>}{order.notes && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Note</span><div style={{ fontSize: 13 }}>{order.notes}</div></div>}</div><div style={{ marginTop: 12, borderTop: '1px solid hsl(var(--border))', paddingTop: 10 }}>{order.order_items.map((item, index) => <div className="summary-row" key={index}><span>{item.title} × {item.quantity}</span><strong>{formatDzd(item.unit_price * item.quantity)}</strong></div>)}<div className="summary-row"><span>Shipping</span><strong>{formatDzd(order.delivery_fee)}</strong></div><div className="summary-row total"><span>Total (COD)</span><strong data-testid={`text-total-${order.id}`}>{formatDzd(order.total)}</strong></div></div></div>)}</div>}</div></main>;
+
+  const statCard = (label: string, value: number, testid: string) => (
+    <div className="summary" style={{ padding: 16 }} data-testid={testid}><div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div><div style={{ fontSize: 28, marginTop: 6 }}>{value}</div></div>
+  );
+
+  if (view === 'dashboard') {
+    if (!books || !orders) return shell(<p className="empty-copy">{loadError ? 'Couldn\u2019t load the back office. Please refresh.' : 'Opening the ledger…'}</p>);
+    const lowStock = books.filter((book) => book.active && book.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock);
+    return shell(<>
+      <h1 style={{ fontSize: 26, marginBottom: 18 }}>Good day, Kame.</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+        {statCard('Books on the shelves', books.filter((book) => book.active).length, 'stat-active-products')}
+        {statCard('Running low', lowStock.length, 'stat-low-stock')}
+        {statCard('Out of stock', books.filter((book) => book.active && book.stock === 0).length, 'stat-out-of-stock')}
+        {statCard('Orders to confirm', orders.filter((order) => order.status === 'pending').length, 'stat-pending-orders')}
+      </div>
+      <h2 style={{ fontSize: 16, margin: '26px 0 10px' }}>Almost gone</h2>
+      {lowStock.length === 0 ? <p className="empty-copy">Every shelf is comfortably stocked.</p> : <div style={{ display: 'grid', gap: 8 }}>{lowStock.map((book) => <div key={book.id} className="summary" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} data-testid={`row-low-${book.id}`}><span style={{ fontSize: 13 }}>{book.title}</span><strong style={{ fontSize: 12, color: book.stock === 0 ? 'hsl(0 60% 45%)' : 'hsl(33 60% 45%)' }}>{book.stock === 0 ? 'sold out' : `${book.stock} left`}</strong></div>)}</div>}
+      <h2 style={{ fontSize: 16, margin: '26px 0 10px' }}>Latest orders</h2>
+      {orders.length === 0 ? <p className="empty-copy">No orders yet — they\u2019ll appear here the moment one lands.</p> : <div style={{ display: 'grid', gap: 8 }}>{orders.slice(0, 5).map((order) => <div key={order.id} className="summary" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-recent-${order.id}`}><button type="button" onClick={() => go('orders')} style={{ fontSize: 13, cursor: 'pointer', border: 'none', background: 'none' }}>{order.order_number} — {order.customer_name}</button><span style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 12 }}><strong>{formatDzd(order.total)}</strong><span className="muted">{order.status}</span></span></div>)}</div>}
+    </>);
+  }
+
+  if (view === 'orders') {
+    if (!orders) return shell(<p className="empty-copy">{loadError ? 'Couldn\u2019t load orders. Please refresh.' : 'Fetching orders…'}</p>);
+    const visible = orders
+      .filter((order) => orderStatusFilter === 'all' || order.status === orderStatusFilter)
+      .filter((order) => {
+        const q = orderSearch.trim().toLowerCase();
+        return !q || order.customer_name.toLowerCase().includes(q) || order.customer_phone.includes(q) || order.order_number.toLowerCase().includes(q);
+      })
+      .sort((a, b) => orderSort === 'newest' ? b.created_at.localeCompare(a.created_at) : a.created_at.localeCompare(b.created_at));
+    const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
+      if (status === order.status) return;
+      const previous = orders;
+      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status } : item));
+      try {
+        await updateOrderStatus(session, order.id, status);
+        setMessage(`Order ${order.order_number} is now ${status}`);
+      } catch {
+        setOrders(previous);
+        setMessage('Could not update that order. Please try again.');
+      }
+    };
+    const orderCard = (order: AdminOrder) => (
+      <div className="summary" key={order.id} data-testid={`card-order-${order.id}`}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 14 }} data-testid={`text-order-number-${order.id}`}>{order.order_number}</h2>
+          <select value={order.status} onChange={(event) => changeStatus(order, event.target.value as OrderStatus)} data-testid={`select-status-${order.id}`} aria-label="Order status" style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', background: 'white', fontSize: 12 }}>
+            {ORDER_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </div>
+        <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{new Date(order.created_at).toLocaleString()}</p>
+        <div className="form-grid" style={{ marginTop: 12 }}>
+          <div className="field"><span className="muted" style={{ fontSize: 11 }}>Customer</span><div style={{ fontSize: 13 }}>{order.customer_name} · {order.customer_phone}</div></div>
+          <div className="field"><span className="muted" style={{ fontSize: 11 }}>Destination</span><div style={{ fontSize: 13 }}>{order.wilaya}, {order.commune} · {order.delivery_method === 'home' ? 'Home delivery' : 'Stop desk'}</div></div>
+          {order.address && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Address</span><div style={{ fontSize: 13 }}>{order.address}</div></div>}
+          {order.notes && <div className="field full"><span className="muted" style={{ fontSize: 11 }}>Note</span><div style={{ fontSize: 13 }}>{order.notes}</div></div>}
+        </div>
+        <div style={{ marginTop: 12, borderTop: '1px solid hsl(var(--border))', paddingTop: 10 }}>
+          {order.order_items.map((item, index) => <div className="summary-row" key={index}><span>{item.title} × {item.quantity}</span><strong>{formatDzd(item.unit_price * item.quantity)}</strong></div>)}
+          <div className="summary-row"><span>Shipping</span><strong>{formatDzd(order.delivery_fee)}</strong></div>
+          <div className="summary-row total"><span>Total (COD)</span><strong data-testid={`text-total-${order.id}`}>{formatDzd(order.total)}</strong></div>
+        </div>
+      </div>
+    );
+    return shell(<>
+      <h1 style={{ fontSize: 26, marginBottom: 14 }}>Orders</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, marginBottom: 18 }}>
+        <input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search name, phone or order number…" style={adminInputStyle} data-testid="input-order-search" />
+        <select value={orderStatusFilter} onChange={(event) => setOrderStatusFilter(event.target.value as 'all' | OrderStatus)} style={adminInputStyle} data-testid="select-order-status">
+          <option value="all">All statuses</option>
+          {ORDER_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <select value={orderSort} onChange={(event) => setOrderSort(event.target.value as 'newest' | 'oldest')} style={adminInputStyle} data-testid="select-order-sort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      {visible.length === 0 ? <p className="empty-copy">No orders match.</p> : <div style={{ display: 'grid', gap: 18 }}>{visible.map(orderCard)}</div>}
+    </>);
+  }
+
+  if (view === 'categories') {
+    return shell(<>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 26 }}>Categories</h1>
+        {editingCategory === null && <button className="btn btn-primary" onClick={() => setEditingCategory('new')} data-testid="button-category-new">New category</button>}
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        {editingCategory === 'new' && <CategoryForm category="new" session={session} onDone={(done) => { setEditingCategory(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingCategory(null); setMessage(msg); }} />}
+        {categories.map((category) => (
+          <div key={category.id}>
+            {editingCategory && editingCategory !== 'new' && editingCategory.id === category.id ? (
+              <CategoryForm category={category} session={session} onDone={(done) => { setEditingCategory(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingCategory(null); setMessage(msg); }} />
+            ) : (
+              <div className="summary" style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }} data-testid={`row-category-${category.id}`}>
+                <div><strong style={{ fontSize: 13 }}>{category.name}</strong><span className="muted" style={{ fontSize: 11, marginLeft: 10 }}>/{category.slug} · {books?.filter((book) => book.category_id === category.id).length ?? 0} books</span></div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button type="button" onClick={() => setEditingCategory(category)} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'underline' }} data-testid={`button-category-edit-${category.id}`}>Edit</button>
+                  <button type="button" onClick={() => run(() => deleteCategory(session, category.id), 'Category deleted')} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', color: 'hsl(0 60% 45%)' }} data-testid={`button-category-delete-${category.id}`}>Delete</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>);
+  }
+
+  // products
+  if (!books) return shell(<p className="empty-copy">{loadError ? 'Couldn\u2019t load. Please refresh.' : 'Loading the shelves…'}</p>);
+  const changeStock = (book: AdminBook, delta: number) => {
+    const next = Math.max(0, book.stock + delta);
+    setBooks((current) => current!.map((item) => item.id === book.id ? { ...item, stock: next } : item));
+    run(() => updateBook(session, book.id, { stock: next }), next === 0 ? `${book.title} is now sold out` : `Stock of \u201c${book.title}\u201d updated`);
+  };
+  return shell(<>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 10, flexWrap: 'wrap' }}>
+      <h1 style={{ fontSize: 26 }}>Products</h1>
+      {editingBook === null && <button className="btn btn-primary" onClick={() => setEditingBook('new')} data-testid="button-book-new">New book</button>}
+    </div>
+    <div style={{ display: 'grid', gap: 10 }}>
+      {editingBook === 'new' && <BookForm book="new" categories={categories} session={session} onDone={(done) => { setEditingBook(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingBook(null); setMessage(msg); }} />}
+      {books.map((book) => (
+        <div key={book.id}>
+          {editingBook && editingBook !== 'new' && editingBook.id === book.id ? (
+            <BookForm book={book} categories={categories} session={session} onDone={(done) => { setEditingBook(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingBook(null); setMessage(msg); }} />
+          ) : (
+            <div className="summary" style={{ padding: '12px 14px', display: 'flex', gap: 12, alignItems: 'center', opacity: book.active ? 1 : 0.55 }} data-testid={`row-book-${book.id}`}>
+              <div className="mini-cover">{book.cover_url ? <img src={book.cover_url} alt="" /> : <span>{book.title.slice(0, 2)}</span>}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong style={{ fontSize: 13, display: 'block' }}>{book.title}{!book.active && <span className="muted"> · archived</span>}{book.featured && <span style={{ color: 'hsl(338 48% 62%)' }}> ★</span>}</strong>
+                <span className="muted" style={{ fontSize: 12 }}>{book.categories?.name ?? '—'} · {formatDzd(book.price)}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" onClick={() => changeStock(book, -1)} aria-label="Decrease stock" style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid hsl(var(--border))', cursor: 'pointer', background: 'white' }} data-testid={`button-stock-minus-${book.id}`}>−</button>
+                <span style={{ fontSize: 13, minWidth: 24, textAlign: 'center' }} data-testid={`text-stock-${book.id}`}>{book.stock}</span>
+                <button type="button" onClick={() => changeStock(book, 1)} aria-label="Increase stock" style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid hsl(var(--border))', cursor: 'pointer', background: 'white' }} data-testid={`button-stock-plus-${book.id}`}>+</button>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={() => setEditingBook(book)} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'underline' }} data-testid={`button-book-edit-${book.id}`}>Edit</button>
+                <button type="button" onClick={() => run(() => updateBook(session, book.id, { active: !book.active }), book.active ? `\u201c${book.title}\u201d archived` : `\u201c${book.title}\u201d is back on the shelves`)} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'underline' }} data-testid={`button-book-archive-${book.id}`}>{book.active ? 'Archive' : 'Restore'}</button>
+                {!book.active && <button type="button" onClick={() => run(() => deleteBook(session, book.id), `\u201c${book.title}\u201d deleted forever`)} style={{ fontSize: 12, cursor: 'pointer', border: 'none', background: 'none', color: 'hsl(0 60% 45%)' }} data-testid={`button-book-delete-${book.id}`}>Delete</button>}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </>);
 }
 
 function Footer({ onNavigate }: { onNavigate: (path: string) => void }) {
@@ -474,7 +748,7 @@ function AppContent() {
   const path = location.split('?')[0];
   const detailId = path.match(/^\/book\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i)?.[1];
   const detailProduct = detailId ? products?.find((product) => product.id === detailId) : undefined;
-  if (path === '/admin') return <Admin />;
+  if (path.startsWith('/admin')) return <Admin section={path} />;
   if (!products) return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} /><main><div className="container page-header"><div className="eyebrow">The online shelves</div><h1>{catalogError ? 'The shelves are unreachable.' : 'Opening the shelves…'}</h1><p>{catalogError ? 'Something went wrong fetching our books. Please refresh the page in a moment.' : 'One second while we fetch the books for you.'}</p>{catalogError && <button className="btn btn-primary" onClick={() => window.location.reload()} data-testid="button-retry-catalog">Try again</button>}</div></main><Footer onNavigate={navigate} /></div>;
   const page = path === '/' ? <Home products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/shop' ? <Shop products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/wishlist' ? <Wishlist products={products} wishlist={wishlist} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={navigate} /> : path === '/cart' ? <Cart products={products} cart={cart} onQuantity={updateQuantity} onRemove={removeLine} onNavigate={navigate} /> : path === '/checkout' ? <Checkout products={products} cart={cart} onNavigate={navigate} onClearCart={() => { setCart([]); clearCartItems(cartTokenRef.current).catch(() => {}); }} /> : detailProduct ? <ProductDetail product={detailProduct} isLoved={wishlist.includes(detailProduct.id)} onToggleWish={toggleWish} onAdd={addToCart} onNavigate={navigate} /> : <Wishlist products={products} wishlist={[]} onToggleWish={toggleWish} onAdd={addToCart} onOpen={(id) => navigate(`/book/${id}`)} onNavigate={() => navigate('/')} />;
   return <div className="app-shell"><Header location={location} cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)} wishlistCount={wishlist.length} onNavigate={navigate} />{page}<Footer onNavigate={navigate} />{toast && <div className="toast" role="status" data-testid="status-toast">{toast}</div>}</div>;

@@ -258,3 +258,110 @@ export async function updateOrderStatus(session: AdminSession, orderId: string, 
   });
   if (!response.ok) throw new Error(`Status update failed (${response.status})`);
 }
+
+export type AdminBook = {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  price: number;
+  category_id: string;
+  pages: number | null;
+  format: 'paperback' | 'hardcover';
+  stock: number;
+  cover_url: string | null;
+  featured: boolean;
+  active: boolean;
+  categories?: { name: string };
+};
+
+export type AdminCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+};
+
+export type BookInput = {
+  title: string;
+  author: string;
+  description: string;
+  price: number;
+  category_id: string;
+  pages: number | null;
+  format: 'paperback' | 'hardcover';
+  stock: number;
+  cover_url: string | null;
+  featured: boolean;
+  active: boolean;
+};
+
+export async function fetchAdminBooks(session: AdminSession): Promise<AdminBook[]> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/books?select=*,categories(name)&order=created_at.desc`,
+    { headers: adminHeaders(session) },
+  );
+  if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
+  return (await response.json()) as AdminBook[];
+}
+
+export async function fetchAdminCategories(session: AdminSession): Promise<AdminCategory[]> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/categories?select=*&order=name`,
+    { headers: adminHeaders(session) },
+  );
+  if (!response.ok) throw new Error(`Categories request failed (${response.status})`);
+  return (await response.json()) as AdminCategory[];
+}
+
+export async function createBook(session: AdminSession, input: BookInput): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/books`, {
+    method: 'POST',
+    headers: { ...adminHeaders(session), Prefer: 'return=minimal' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`Book create failed (${response.status})`);
+}
+
+export async function updateBook(session: AdminSession, bookId: string, patch: Partial<BookInput>): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/books?id=eq.${bookId}`, {
+    method: 'PATCH',
+    headers: { ...adminHeaders(session), Prefer: 'return=minimal' },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) throw new Error(`Book update failed (${response.status})`);
+}
+
+export async function deleteBook(session: AdminSession, bookId: string): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/books?id=eq.${bookId}`, {
+    method: 'DELETE',
+    headers: adminHeaders(session),
+  });
+  if (!response.ok) throw new Error(`Book delete failed (${response.status})`);
+}
+
+export async function createCategory(session: AdminSession, name: string, slug: string): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/categories`, {
+    method: 'POST',
+    headers: { ...adminHeaders(session), Prefer: 'return=minimal' },
+    body: JSON.stringify({ name, slug }),
+  });
+  if (!response.ok) throw new Error(`Category create failed (${response.status})`);
+}
+
+export async function updateCategory(session: AdminSession, categoryId: string, patch: { name?: string; slug?: string; active?: boolean }): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/categories?id=eq.${categoryId}`, {
+    method: 'PATCH',
+    headers: { ...adminHeaders(session), Prefer: 'return=minimal' },
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) throw new Error(`Category update failed (${response.status})`);
+}
+
+export async function deleteCategory(session: AdminSession, categoryId: string): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/categories?id=eq.${categoryId}`, {
+    method: 'DELETE',
+    headers: adminHeaders(session),
+  });
+  if (!response.ok) throw new Error(`Category delete failed (${response.status})`);
+}
