@@ -144,3 +144,37 @@ export async function deleteWishlistItem(token: string, bookId: string): Promise
   );
   if (!response.ok) throw new Error(`Wishlist removal failed (${response.status})`);
 }
+
+export type DeliveryMethod = 'home' | 'stopdesk';
+
+export type PlaceOrderInput = {
+  name: string;
+  phone: string;
+  wilayaCode: number;
+  commune: string;
+  deliveryMethod: DeliveryMethod;
+  address: string;
+  notes: string;
+};
+
+export const HOME_DELIVERY_FEE = 600;
+export const STOPDESK_DELIVERY_FEE = 400;
+
+export async function placeOrder(token: string, input: PlaceOrderInput): Promise<string> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/place_order`, {
+    method: 'POST',
+    headers: cartHeaders(token),
+    body: JSON.stringify({
+      p_token: token,
+      p_name: input.name,
+      p_phone: input.phone,
+      p_wilaya_code: input.wilayaCode,
+      p_commune: input.commune,
+      p_delivery_method: input.deliveryMethod,
+      p_address: input.address,
+      p_notes: input.notes || null,
+    }),
+  });
+  if (!response.ok) throw new Error(`Order failed (${response.status})`);
+  return (await response.json()) as string;
+}
