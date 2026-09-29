@@ -92,7 +92,7 @@ async function ensureCart(token: string): Promise<void> {
 
 export async function setCartItem(token: string, bookId: string, quantity: number): Promise<void> {
   await ensureCart(token);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/cart_items`, {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/cart_items?on_conflict=cart_id,book_id`, {
     method: 'POST',
     headers: { ...cartHeaders(token), Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify({ cart_id: token, book_id: bookId, quantity }),
@@ -114,4 +114,33 @@ export async function clearCartItems(token: string): Promise<void> {
     headers: cartHeaders(token),
   });
   if (!response.ok) throw new Error(`Cart clear failed (${response.status})`);
+}
+
+export async function fetchWishlist(token: string): Promise<string[]> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/wishlist_items?select=book_id&visitor_id=eq.${token}&order=book_id`,
+    { headers: cartHeaders(token) },
+  );
+  if (!response.ok) throw new Error(`Wishlist request failed (${response.status})`);
+  const rows = (await response.json()) as { book_id: string }[];
+  return rows.map((row) => row.book_id);
+}
+
+export async function addWishlistItem(token: string, bookId: string): Promise<void> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/wishlist_items`, {
+    method: 'POST',
+    headers: { ...cartHeaders(token), Prefer: 'resolution=ignore-duplicates' },
+    body: JSON.stringify({ visitor_id: token, book_id: bookId }),
+  });
+  if (!response.ok && response.status !== 409) {
+    throw new Error(`Wishlist add failed (${response.status})`);
+  }
+}
+
+export async function deleteWishlistItem(token: string, bookId: string): Promise<void> {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/wishlist_items?visitor_id=eq.${token}&book_id=eq.${bookId}`,
+    { method: 'DELETE', headers: cartHeaders(token) },
+  );
+  if (!response.ok) throw new Error(`Wishlist removal failed (${response.status})`);
 }
