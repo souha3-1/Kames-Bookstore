@@ -365,3 +365,15 @@ export async function deleteCategory(session: AdminSession, categoryId: string):
   });
   if (!response.ok) throw new Error(`Category delete failed (${response.status})`);
 }
+
+export async function uploadCoverImage(session: AdminSession, file: File): Promise<string> {
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${crypto.randomUUID()}.${extension}`;
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/book-covers/${path}`, {
+    method: 'POST',
+    headers: { ...adminHeaders(session), 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' },
+    body: file,
+  });
+  if (!response.ok) throw new Error(`Cover upload failed (${response.status})`);
+  return `${SUPABASE_URL}/storage/v1/object/public/book-covers/${path}`;
+}
