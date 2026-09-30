@@ -38,6 +38,22 @@ const categories: { name: Category; icon: string }[] = [
 
 const formatDzd = (value: number) => `${value.toLocaleString('fr-DZ')} DA`;
 
+const PLACEHOLDER_COVER_TINTS = ['purple', 'gold', 'teal', 'pink'] as const;
+const PLACEHOLDER_COVER_BY_TITLE: Record<string, (typeof PLACEHOLDER_COVER_TINTS)[number]> = {
+  'a little life': 'purple',
+  'normal people': 'gold',
+  'the alchemist': 'teal',
+  'the comfort book': 'pink',
+};
+
+const placeholderCoverTint = (product: Product) => {
+  const byTitle = PLACEHOLDER_COVER_BY_TITLE[product.title.trim().toLowerCase()];
+  if (byTitle) return byTitle;
+  let hash = 0;
+  for (const char of product.id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return PLACEHOLDER_COVER_TINTS[hash % PLACEHOLDER_COVER_TINTS.length];
+};
+
 function Cover({ product, large = false }: { product: Product; large?: boolean }) {
   if (product.coverImage) {
     return (
@@ -47,7 +63,7 @@ function Cover({ product, large = false }: { product: Product; large?: boolean }
     );
   }
   return (
-    <div className={`cover-card ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
+    <div className={`cover-card ${placeholderCoverTint(product)} ${large ? 'large-cover' : ''}`} data-testid={`cover-${product.id}`}>
       <small>prototype cover</small>
       <b>{product.title}</b>
       <i>{product.author}</i>
