@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, fetchAdminBooks, fetchAdminCategories, createBook, updateBook, deleteBook, createCategory, updateCategory, deleteCategory, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession, type AdminBook, type AdminCategory, type BookInput } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, fetchAdminBooks, fetchAdminCategories, createBook, updateBook, deleteBook, createCategory, updateCategory, deleteCategory, uploadCoverImage, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession, type AdminBook, type AdminCategory, type BookInput } from './lib/supabase';
 import { WILAYAS } from './lib/algeria';
 import {
   ArrowLeft,
@@ -397,6 +397,20 @@ function BookForm({ book, categories, session, onDone, onError }: {
     featured: isNew ? false : book.featured, active: isNew ? true : book.active,
   });
   const set = (key: string, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const [uploading, setUploading] = useState(false);
+  const uploadCover = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      set('cover_url', await uploadCoverImage(session, file));
+    } catch {
+      onError('Cover upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload: BookInput = {
@@ -425,6 +439,7 @@ function BookForm({ book, categories, session, onDone, onError }: {
       <div className="field"><label>Pages (optional)</label><input type="number" min="1" value={form.pages} onChange={(event) => set('pages', event.target.value)} style={adminInputStyle} /></div>
       <div className="field"><label>Format</label><select value={form.format} onChange={(event) => set('format', event.target.value)} style={adminInputStyle}>{['paperback', 'hardcover'].map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
       <div className="field full"><label>Cover image URL (optional)</label><input value={form.cover_url} onChange={(event) => set('cover_url', event.target.value)} placeholder="https://…" style={adminInputStyle} data-testid={isNew ? 'input-book-cover-new' : `input-book-cover-${book.id}`} /></div>
+      <div className="field full"><label>Or upload a cover image</label><input type="file" accept="image/*" onChange={uploadCover} disabled={uploading} style={{ fontSize: 12 }} data-testid={isNew ? 'input-book-cover-file-new' : `input-book-cover-file-${book.id}`} />{uploading && <span className="muted" style={{ fontSize: 11 }}>Uploading…</span>}</div>
       <div className="field full"><label>Description</label><textarea value={form.description} onChange={(event) => set('description', event.target.value)} rows={3} style={{ ...adminInputStyle, resize: 'vertical' }} data-testid={isNew ? 'input-book-desc-new' : `input-book-desc-${book.id}`} /></div>
       <div className="field" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={form.featured} onChange={(event) => set('featured', event.target.checked)} /> Featured</label>
@@ -454,7 +469,8 @@ function Admin({ section }: { section: string }) {
   const [editingCategory, setEditingCategory] = useState<AdminCategory | 'new' | null>(null);
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | OrderStatus>('all');
-  const [orderSort, setOrderSort] = useState<'newest' | 'oldest'>('newest');
+  const [orderSort, setOrderSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
+  const [bookSearch, setBookSearch] = useState('');
 
   useEffect(() => { setLocalPath(section); }, [section]);
   useEffect(() => { if (!message) return; const timer = window.setTimeout(() => setMessage(''), 2500); return () => window.clearTimeout(timer); }, [message]);
@@ -573,7 +589,7 @@ function Admin({ section }: { section: string }) {
         const q = orderSearch.trim().toLowerCase();
         return !q || order.customer_name.toLowerCase().includes(q) || order.customer_phone.includes(q) || order.order_number.toLowerCase().includes(q);
       })
-      .sort((a, b) => orderSort === 'newest' ? b.created_at.localeCompare(a.created_at) : a.created_at.localeCompare(b.created_at));
+      .sort((a, b) => orderSort === 'newest' ? b.created_at.localeCompare(a.created_at) : orderSort === 'oldest' ? a.created_at.localeCompare(b.created_at) : orderSort === 'highest' ? b.total - a.total : a.total - b.total);
     const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
       if (status === order.status) return;
       const previous = orders;
@@ -610,15 +626,27 @@ function Admin({ section }: { section: string }) {
     );
     return shell(<>
       <h1 style={{ fontSize: 26, marginBottom: 14 }}>Orders</h1>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+        {(['all', ...ORDER_STATUSES] as Array<'all' | OrderStatus>).map((status) => (
+          <button key={status} type="button" onClick={() => setOrderStatusFilter(status)}
+            style={{ padding: '5px 13px', borderRadius: 999, fontSize: 12, cursor: 'pointer', border: orderStatusFilter === status ? '1.5px solid hsl(338 48% 62%)' : '1px solid hsl(var(--border))', background: orderStatusFilter === status ? 'hsl(338 48% 97%)' : 'white', color: orderStatusFilter === status ? 'hsl(338 48% 40%)' : 'hsl(var(--foreground))' }}
+            data-testid={`chip-status-${status}`}>
+            {status === 'all' ? 'All' : status}
+            {status !== 'all' && <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>{orders.filter((order) => order.status === status).length}</span>}
+          </button>
+        ))}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, marginBottom: 18 }}>
         <input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Search name, phone or order number…" style={adminInputStyle} data-testid="input-order-search" />
         <select value={orderStatusFilter} onChange={(event) => setOrderStatusFilter(event.target.value as 'all' | OrderStatus)} style={adminInputStyle} data-testid="select-order-status">
           <option value="all">All statuses</option>
           {ORDER_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
-        <select value={orderSort} onChange={(event) => setOrderSort(event.target.value as 'newest' | 'oldest')} style={adminInputStyle} data-testid="select-order-sort">
+        <select value={orderSort} onChange={(event) => setOrderSort(event.target.value as 'newest' | 'oldest' | 'highest' | 'lowest')} style={adminInputStyle} data-testid="select-order-sort">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
+          <option value="highest">Highest total</option>
+          <option value="lowest">Lowest total</option>
         </select>
       </div>
       {visible.length === 0 ? <p className="empty-copy">No orders match.</p> : <div style={{ display: 'grid', gap: 18 }}>{visible.map(orderCard)}</div>}
@@ -659,14 +687,22 @@ function Admin({ section }: { section: string }) {
     setBooks((current) => current!.map((item) => item.id === book.id ? { ...item, stock: next } : item));
     run(() => updateBook(session, book.id, { stock: next }), next === 0 ? `${book.title} is now sold out` : `Stock of \u201c${book.title}\u201d updated`);
   };
+  const bookQuery = bookSearch.trim().toLowerCase();
+  const visibleBooks = bookQuery
+    ? books.filter((book) => book.title.toLowerCase().includes(bookQuery) || book.author.toLowerCase().includes(bookQuery))
+    : books;
   return shell(<>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 10, flexWrap: 'wrap' }}>
       <h1 style={{ fontSize: 26 }}>Products</h1>
       {editingBook === null && <button className="btn btn-primary" onClick={() => setEditingBook('new')} data-testid="button-book-new">New book</button>}
     </div>
+    <div style={{ marginBottom: 14 }}>
+      <input value={bookSearch} onChange={(event) => setBookSearch(event.target.value)} placeholder="Search by title or author…" style={{ ...adminInputStyle, width: '100%', boxSizing: 'border-box' }} data-testid="input-product-search" />
+    </div>
     <div style={{ display: 'grid', gap: 10 }}>
       {editingBook === 'new' && <BookForm book="new" categories={categories} session={session} onDone={(done) => { setEditingBook(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingBook(null); setMessage(msg); }} />}
-      {books.map((book) => (
+      {visibleBooks.length === 0 && <p className="empty-copy">No books match \u201c{bookSearch.trim()}\u201d.</p>}
+      {visibleBooks.map((book) => (
         <div key={book.id}>
           {editingBook && editingBook !== 'new' && editingBook.id === book.id ? (
             <BookForm book={book} categories={categories} session={session} onDone={(done) => { setEditingBook(null); if (done) { setMessage(done); load(session); } }} onError={(msg) => { setEditingBook(null); setMessage(msg); }} />
