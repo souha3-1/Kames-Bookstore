@@ -157,9 +157,6 @@ export type PlaceOrderInput = {
   notes: string;
 };
 
-export const HOME_DELIVERY_FEE = 600;
-export const STOPDESK_DELIVERY_FEE = 400;
-
 export async function placeOrder(token: string, input: PlaceOrderInput): Promise<string> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/place_order`, {
     method: 'POST',

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation } from 'wouter';
-import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, HOME_DELIVERY_FEE, STOPDESK_DELIVERY_FEE, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, fetchAdminBooks, fetchAdminCategories, createBook, updateBook, deleteBook, createCategory, updateCategory, deleteCategory, uploadCoverImage, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession, type AdminBook, type AdminCategory, type BookInput } from './lib/supabase';
+import { fetchCatalog, getCartToken, fetchCart, setCartItem, deleteCartItem, clearCartItems, fetchWishlist, addWishlistItem, deleteWishlistItem, placeOrder, adminSignIn, adminSignOut, getAdminSession, fetchAllOrders, updateOrderStatus, fetchAdminBooks, fetchAdminCategories, createBook, updateBook, deleteBook, createCategory, updateCategory, deleteCategory, uploadCoverImage, type Product, type CartLine, type DeliveryMethod, type AdminOrder, type OrderStatus, type AdminSession, type AdminBook, type AdminCategory, type BookInput } from './lib/supabase';
+import { cartSubtotal, deliveryFeeFor, formatDzd, HOME_DELIVERY_FEE, isLowStock, ORDER_STATUSES, placeholderCoverTint, STOPDESK_DELIVERY_FEE } from './lib/domain';
 import { WILAYAS } from './lib/algeria';
 import {
   ArrowLeft,
@@ -35,24 +36,6 @@ const categories: { name: Category; icon: string }[] = [
   { name: 'Classics', icon: '▤' },
   { name: 'Young adult', icon: '☆' },
 ];
-
-const formatDzd = (value: number) => `${value.toLocaleString('fr-DZ')} DA`;
-
-const PLACEHOLDER_COVER_TINTS = ['purple', 'gold', 'teal', 'pink'] as const;
-const PLACEHOLDER_COVER_BY_TITLE: Record<string, (typeof PLACEHOLDER_COVER_TINTS)[number]> = {
-  'a little life': 'purple',
-  'normal people': 'gold',
-  'the alchemist': 'teal',
-  'the comfort book': 'pink',
-};
-
-const placeholderCoverTint = (product: Product) => {
-  const byTitle = PLACEHOLDER_COVER_BY_TITLE[product.title.trim().toLowerCase()];
-  if (byTitle) return byTitle;
-  let hash = 0;
-  for (const char of product.id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return PLACEHOLDER_COVER_TINTS[hash % PLACEHOLDER_COVER_TINTS.length];
-};
 
 function Cover({ product, large = false }: { product: Product; large?: boolean }) {
   if (product.coverImage) {
@@ -290,9 +273,9 @@ function Wishlist({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate 
 }
 
 function Cart({ products, cart, onQuantity, onRemove, onNavigate }: { products: Product[]; cart: CartLine[]; onQuantity: (id: string, delta: number) => void; onRemove: (id: string) => void; onNavigate: (path: string) => void }) {
-  const subtotal = cart.reduce((sum, line) => sum + (products.find((product) => product.id === line.id)?.price ?? 0) * line.quantity, 0);
-  const delivery = subtotal === 0 ? 0 : 600;
-  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className="mini-cover">{product.coverImage ? <img src={product.coverImage} alt="" /> : <span>{product.title}</span>}</div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? '—' : `${formatDzd(600)} home · ${formatDzd(400)} desk`}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Shipping: 600 DA home delivery · 400 DA stop desk. COD everywhere.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
+  const subtotal = cartSubtotal(cart, products);
+  const delivery = subtotal === 0 ? 0 : HOME_DELIVERY_FEE;
+  return <main><div className="container page-header"><div className="eyebrow">Your reading pile</div><h1>The bag.</h1><p>Everything you&apos;re taking home. We&apos;ll send it with care and collect payment when it arrives.</p></div><div className="container" style={{ paddingBottom: 90 }}>{cart.length ? <div className="cart-layout"><div className="cart-list">{cart.map((line) => { const product = products.find((item) => item.id === line.id); if (!product) return null; return <div className="cart-item" key={line.id} data-testid={`cart-item-${line.id}`}><div className="mini-cover">{product.coverImage ? <img src={product.coverImage} alt="" /> : <span>{product.title}</span>}</div><div><h3>{product.title}</h3><p>{product.author}</p><div className="quantity"><button onClick={() => onQuantity(line.id, -1)} aria-label="Decrease quantity" data-testid={`button-decrease-${line.id}`}><Minus size={13} /></button><span data-testid={`text-quantity-${line.id}`}>{line.quantity}</span><button onClick={() => onQuantity(line.id, 1)} aria-label="Increase quantity" data-testid={`button-increase-${line.id}`}><Plus size={13} /></button></div></div><div className="item-price"><strong>{formatDzd(product.price * line.quantity)}</strong><button className="remove" onClick={() => onRemove(line.id)} data-testid={`button-remove-${line.id}`}><Trash2 size={13} /> Remove</button></div></div>; })}</div><aside className="summary"><h2>Order summary</h2><div className="summary-row"><span>Books</span><strong>{formatDzd(subtotal)}</strong></div><div className="summary-row"><span>Delivery</span><strong>{delivery === 0 ? '—' : `${formatDzd(HOME_DELIVERY_FEE)} home · ${formatDzd(STOPDESK_DELIVERY_FEE)} desk`}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><button className="btn btn-primary" onClick={() => onNavigate('/checkout')} data-testid="button-checkout">Continue to checkout <ArrowRight size={15} /></button><p className="delivery-note"><Truck size={13} style={{ verticalAlign: 'middle' }} /> Shipping: 600 DA home delivery · 400 DA stop desk. COD everywhere.</p></aside></div> : <div className="cart-empty"><ShoppingBag className="empty-icon" size={35} /><h2 className="empty-title">Your bag is still dreaming.</h2><p className="empty-copy">Add a book or two and we&apos;ll get them ready for their trip to you.</p><button className="btn btn-primary" onClick={() => onNavigate('/shop')} data-testid="button-cart-shop">Find a book <ArrowRight size={15} /></button></div>}</div></main>;
 }
 
 function Checkout({ products, cart, onNavigate, onClearCart }: { products: Product[]; cart: CartLine[]; onNavigate: (path: string) => void; onClearCart: () => void }) {
@@ -307,8 +290,8 @@ function Checkout({ products, cart, onNavigate, onClearCart }: { products: Produ
   const [error, setError] = useState('');
   const [orderId, setOrderId] = useState('');
   const wilaya = WILAYAS.find((item) => item.code === wilayaCode);
-  const subtotal = cart.reduce((sum, line) => sum + (products.find((product) => product.id === line.id)?.price ?? 0) * line.quantity, 0);
-  const delivery = deliveryMethod === 'home' ? HOME_DELIVERY_FEE : STOPDESK_DELIVERY_FEE;
+  const subtotal = cartSubtotal(cart, products);
+  const delivery = deliveryFeeFor(deliveryMethod);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (placing || !wilaya) return;
@@ -349,9 +332,6 @@ function Checkout({ products, cart, onNavigate, onClearCart }: { products: Produ
   );
   return <main><div className="container page-header"><div className="eyebrow">Almost yours</div><h1>Checkout, <em style={{ color: 'hsl(338 48% 62%)' }}>gently.</em></h1><p>No account, no card details. Just tell us where to send your books and pay when they arrive.</p></div><div className="container checkout-layout" style={{ paddingBottom: 90 }}><form className="form-card" onSubmit={submit}><h2>Delivery details</h2><div className="form-grid"><div className="field"><label htmlFor="checkout-name">Full name</label><input id="checkout-name" name="name" required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" data-testid="input-checkout-name" /></div><div className="field"><label htmlFor="checkout-phone">Phone number</label><input id="checkout-phone" name="phone" required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0555 12 34 56" data-testid="input-checkout-phone" /></div><div className="field"><label htmlFor="checkout-wilaya">Wilaya</label><select id="checkout-wilaya" required value={wilayaCode || ''} onChange={(event) => { setWilayaCode(Number(event.target.value)); setCommune(''); }} data-testid="select-checkout-wilaya"><option value="" disabled>Search or choose your wilaya</option>{WILAYAS.map((item) => <option key={item.code} value={item.code}>{String(item.code).padStart(2, '0')} — {item.name}</option>)}</select></div><div className="field"><label htmlFor="checkout-commune">City / Commune</label><select id="checkout-commune" required disabled={!wilaya} value={commune} onChange={(event) => setCommune(event.target.value)} data-testid="select-checkout-commune"><option value="" disabled>{wilaya ? 'Choose your commune' : 'Choose your wilaya first'}</option>{(wilaya?.communes ?? []).map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="field full"><label>Delivery method</label><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>{methodCard('home', 'Home delivery', 'We bring it to your door.', 'button-method-home')}{methodCard('stopdesk', 'Stop desk', 'You pick it up at a delivery office.', 'button-method-stopdesk')}</div></div>{deliveryMethod === 'home' && <div className="field full"><label htmlFor="checkout-address">Delivery address</label><input id="checkout-address" name="address" required value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Street, building, helpful landmark…" data-testid="input-checkout-address" /></div>}<div className="field full"><label htmlFor="checkout-note">A note for the delivery person <span className="muted">(optional)</span></label><input id="checkout-note" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Call me before arriving…" data-testid="input-checkout-note" /></div></div>{error && <p style={{ marginTop: 14, fontSize: 12, color: 'hsl(0 60% 45%)' }} data-testid="status-checkout-error">{error}</p>}<div style={{ marginTop: 25, paddingTop: 18, borderTop: '1px solid hsl(var(--border))', color: 'hsl(var(--muted-foreground))', fontSize: 11 }}><Clock3 size={13} style={{ verticalAlign: 'middle' }} /> We&apos;ll confirm your order by phone before dispatching.</div><button className="btn btn-primary" style={{ marginTop: 20, width: '100%' }} type="submit" disabled={placing} data-testid="button-place-order">{placing ? 'Placing your order…' : `Place my order · ${formatDzd(subtotal + delivery)}`} <ArrowRight size={15} /></button></form><aside className="summary"><h2>Your books</h2>{cart.map((line) => { const product = products.find((item) => item.id === line.id); return product ? <div className="summary-row" key={line.id}><span>{product.title} × {line.quantity}</span><strong>{formatDzd(product.price * line.quantity)}</strong></div> : null; })}<div className="summary-row"><span>Shipping</span><strong>{formatDzd(delivery)}</strong></div><div className="summary-row total"><span>Total</span><strong>{formatDzd(subtotal + delivery)}</strong></div><p className="delivery-note"><Check size={13} style={{ verticalAlign: 'middle' }} /> Cash on delivery · no payment needed today.</p></aside></div></main>;
 }
-
-const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-const LOW_STOCK_THRESHOLD = 5;
 
 const adminInputStyle: React.CSSProperties = { padding: '8px 10px', borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 13, width: '100%', background: 'white' };
 
@@ -566,7 +546,7 @@ function Admin({ section }: { section: string }) {
 
   if (view === 'dashboard') {
     if (!books || !orders) return shell(<p className="empty-copy">{loadError ? 'Couldn\u2019t load the back office. Please refresh.' : 'Opening the ledger…'}</p>);
-    const lowStock = books.filter((book) => book.active && book.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock);
+    const lowStock = books.filter((book) => isLowStock(book)).sort((a, b) => a.stock - b.stock);
     return shell(<>
       <h1 style={{ fontSize: 26, marginBottom: 18 }}>Good day, Kame.</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
