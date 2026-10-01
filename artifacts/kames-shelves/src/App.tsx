@@ -594,7 +594,7 @@ function Admin({ section }: { section: string }) {
     const changeStatus = async (order: AdminOrder, status: OrderStatus) => {
       if (status === order.status) return;
       const previous = orders;
-      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status } : item));
+      setOrders((current) => (current ?? []).map((item) => item.id === order.id ? { ...item, status } : item));
       try {
         await updateOrderStatus(session, order.id, status);
         setMessage(`Order ${order.order_number} is now ${status}`);
