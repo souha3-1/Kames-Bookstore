@@ -246,21 +246,6 @@ function EditorialBlock({ onNavigate }: { onNavigate: (path: string) => void }) 
   );
 }
 
-function Reviews() {
-  return (
-    <section className="section section-alt">
-      <div className="container">
-        <div className="section-heading"><div><div className="eyebrow">Dog-eared and loved</div><h2>What readers are saying.</h2></div><div className="stars">★★★★★ <span className="muted">from our little community</span></div></div>
-        <div className="review-grid">
-          <div className="review-card featured"><div className="stars">★★★★★</div><p>“My order arrived wrapped so sweetly I almost didn&apos;t want to open it. Almost. The recommendations were perfect.”</p><div className="reviewer"><span className="avatar">SA</span><span><strong>Sarra A.</strong><br />Algiers · verified reader</span></div></div>
-          <div className="review-card"><div className="stars">★★★★★</div><p>“Finally a place that makes choosing my next book feel like a conversation.”</p><div className="reviewer"><span className="avatar">YN</span><span><strong>Yasmine N.</strong><br />Oran · verified reader</span></div></div>
-          <div className="review-card"><div className="stars">★★★★★</div><p>“The COD delivery was easy, and the little bookmark is now living in three different books.”</p><div className="reviewer"><span className="avatar">IK</span><span><strong>Imane K.</strong><br />Blida · verified reader</span></div></div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Newsletter() {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
@@ -273,7 +258,7 @@ function Newsletter() {
 }
 
 function Home({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { products: Product[]; wishlist: string[]; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onOpen: (id: string) => void; onNavigate: (path: string) => void }) {
-  return <><Hero onNavigate={onNavigate} /><CategoryStrip onNavigate={onNavigate} /><FeaturedBooks products={products} wishlist={wishlist} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} onNavigate={onNavigate} /><EditorialBlock onNavigate={onNavigate} /><Reviews /><Newsletter /></>;
+  return <><Hero onNavigate={onNavigate} /><CategoryStrip onNavigate={onNavigate} /><FeaturedBooks products={products} wishlist={wishlist} onToggleWish={onToggleWish} onAdd={onAdd} onOpen={onOpen} onNavigate={onNavigate} /><EditorialBlock onNavigate={onNavigate} /><Newsletter /></>;
 }
 
 function Shop({ products, wishlist, onToggleWish, onAdd, onOpen, onNavigate }: { products: Product[]; wishlist: string[]; onToggleWish: (id: string) => void; onAdd: (product: Product) => void; onOpen: (id: string) => void; onNavigate: (path: string) => void }) {
