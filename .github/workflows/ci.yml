@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Record esbuild build-script decision
+        # pnpm 12 replaced `onlyBuiltDependencies` with `allowBuilds` and fails
+        # the install while esbuild's decision is still undecided. Denying the
+        # script is safe: the binary ships in the @esbuild/linux-x64 optional
+        # dependency that the workspace overrides keep.
+        run: |
+          printf '\nallowBuilds:\n  esbuild: false\n' >> pnpm-workspace.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
