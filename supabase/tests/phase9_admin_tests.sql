@@ -104,13 +104,14 @@ if (select status from public.orders limit 1) <> 'confirmed' then
 end if;
 end $$;
 
--- but admin has no write path on other tables (e.g. books): the update
--- matches no rows (no UPDATE policy on books), so nothing changes
-update public.books set price = 1;
+-- admin write access stops at the policies that grant it: order_items is
+-- select-only, so the price snapshot cannot be edited even by an admin.
+-- (books/categories writes were added later, in phase 9b, and are covered
+-- by phase9b_admin_backoffice_tests.sql)
+update public.order_items set unit_price = 1;
 do $$ begin
-  update public.books set price = 1 where false;
-  if (select count(*) from public.books where price = 1) <> 0 then
-    raise exception 'FAIL: admin can edit books';
+  if (select count(*) from public.order_items where unit_price = 1) <> 0 then
+    raise exception 'FAIL: admin can edit order items';
   end if;
 end $$;
 

@@ -1,7 +1,19 @@
 -- Phase 2 schema tests: run after migrations against local stack.
 -- Any failure raises; final SELECT prints PASS summary.
+-- Run against a fresh `supabase db reset` (the cleanup below also drops the
+-- phase 4 catalog seed, which would otherwise collide with these fixtures).
 
 \set ON_ERROR_STOP on
+
+-- ---------- cleanup ----------
+delete from public.wishlist_items;
+delete from public.cart_items;
+delete from public.carts;
+delete from public.order_items;
+delete from public.orders;
+delete from public.books;
+delete from public.categories;
+delete from public.newsletter_subscribers;
 
 -- ---------- happy path ----------
 insert into public.categories (name, slug) values ('Fiction', 'fiction') returning id as cat1_id \gset

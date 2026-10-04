@@ -10,6 +10,8 @@ insert into public.categories (name, slug) values ('Test Admin Cat', 'test-admin
 insert into public.books (title, author, description, price, category_id, stock)
   select 'Admin Test Book', 'Test Author', 'desc', 1500, id, 10 from public.categories where slug = 'test-admin-cat';
 
+insert into public.carts (id) values ('44444444-4444-4444-4444-444444444444')
+  on conflict (id) do nothing;
 insert into public.cart_items (cart_id, book_id, quantity)
   select '44444444-4444-4444-4444-444444444444', id, 1 from public.books where title = 'Admin Test Book'
   on conflict (cart_id, book_id) do update set quantity = 1;
